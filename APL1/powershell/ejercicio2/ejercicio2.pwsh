@@ -1,32 +1,31 @@
 #!/bin/pwsh
 
 param(
-	[Parameter(Mandatory=$true, HelpMessage="Ruta del archivo de la matriz")]
-	[ValidateNotNull()]
-	[string]$matriz,
-	[Parameter(Mandatory=$false, HelpMessage="Valor entero para utilizarse en el producto escalar. No se puede usar junto con -t o -trasponer")]
-	[int]$producto,
-	[Parameter(Mandatory=$false, HelpMessage="Indica que se debe realizar la operación de trasposición sobre la matriz. (no recibe valor adicional, solo el parámetro) No se puede usar junto a –p o –producto.")]
-	[bool]$trasponer,
-	[Parameter(Mandatory=$true, HelpMessage="Carácter para utilizarse como separador de columnas")]
-	[ValidateNotNull()]
-	[string]$separador = "|"
+    [Parameter(Mandatory=$true, HelpMessage="Ruta del archivo de la matriz")]
+    [ValidateNotNull()]
+    [string]$matriz,
+    [Parameter(Mandatory=$false, HelpMessage="Valor entero para utilizarse en el producto escalar. No se puede usar junto con -t o -trasponer")]
+    [int]$producto,
+    [Parameter(Mandatory=$false, HelpMessage="Indica que se debe realizar la operación de trasposición sobre la matriz. (no recibe valor adicional, solo el parámetro) No se puede usar junto a –p o –producto.")]
+    [bool]$trasponer,
+    [Parameter(Mandatory=$true, HelpMessage="Carácter para utilizarse como separador de columnas")]
+    [ValidateNotNull()]
+    [string]$separador = "|"
 )
 
-if ($separador -eq "-")
-{
-	Write-Output "El separador - es invalido"
-	Exit
+if ($separador -eq "-") {
+    Write-Output "El separador - es invalido"
+    Exit
 }
 
-if ( ($producto -eq 0) -and ( -not $trasponer) ) {
-	Write-Output "necesita indicar una operacion, ya sea trasponer o producto"
-	Exit
+if (($producto -eq 0) -and (-not $trasponer)) {
+    Write-Output "necesita indicar una operacion, ya sea trasponer o producto"
+    Exit
 }
 
-if ( ($producto -ne 0) -and ($trasponer) ) {
-	Write-output "no se puede trasponer y hacer producto"
-	Exit
+if (($producto -ne 0) -and ($trasponer)) {
+    Write-Output "no se puede trasponer y hacer producto"
+    Exit
 }
 
 if (-not (Test-Path $matriz)) {
@@ -39,10 +38,9 @@ if ((Get-Content $matriz | Measure-Object -Line).Lines -eq 0) {
     Exit
 }
 
-
 $escapedDelimiter = [regex]::Escape($separador)
 
-#aca arranca la validacion y generación de la matriz
+# aca arranca la validacion y generación de la matriz
 
 $matrix = @()
 $expectedColumnCount = $null
@@ -78,8 +76,7 @@ if ($matrix.Count -ne $expectedColumnCount) {
     Exit
 }
 
-#aca termina la validacion y la generación
-
+# aca termina la validacion y la generación
 
 if ($producto -ne 0) {
     $resultado = $matrix | ForEach-Object {
@@ -103,8 +100,7 @@ if ($trasponer) {
     }	
 }
 
-
-#obtener el path del archivo de input para generar el de salida independientemente de donde esté
+# obtener el path del archivo de input para generar el de salida independientemente de donde esté
 $filename = [System.IO.Path]::GetFileName($matriz)
 $salida = "salida.$filename"  
 $resultado | ForEach-Object { $_ -join $separador } | Out-File -FilePath $salida
