@@ -29,13 +29,57 @@ if ( ($producto -ne 0) -and ($trasponer) ) {
 	Exit
 }
 
+if (-not (Test-Path $matriz)) {
+    Write-Output "El archivo especificado no existe."
+    Exit
+}
+
+if ((Get-Content $matriz | Measure-Object -Line).Lines -eq 0) {
+    Write-Output "El archivo está vacío."
+    Exit
+}
+
+
 $escapedDelimiter = [regex]::Escape($separador)
 
+#aca arranca la validacion y generación de la matriz
+
 $matrix = @()
+$expectedColumnCount = $null
+$lineNumber = 0
+
 Get-Content $matriz | ForEach-Object {
-    $row = ($_ -split $escapedDelimiter) | ForEach-Object { [int]$_ }
-    $matrix += ,$row  # Notar la coma para que se agregue como sub-array
+    $lineNumber++
+    $columns = ($_ -split $escapedDelimiter)
+    
+    # Validar que todos los valores sean enteros
+    foreach ($value in $columns) {
+        if (-not ($value -match '^-?\d+$')) {
+            Write-Output "Valor inválido en la línea $lineNumber '$value' no es un número entero."
+            Exit
+        }
+    }
+
+    if (-not $expectedColumnCount) {
+        $expectedColumnCount = $columns.Count
+    }
+    elseif ($columns.Count -ne $expectedColumnCount) {
+        Write-Output "La matriz no está bien formada: la línea $lineNumber tiene una cantidad distinta de columnas."
+        Exit
+    }
+
+    $row = $columns | ForEach-Object { [int]$_ }
+    $matrix += ,$row
 }
+
+# Validar que la matriz sea cuadrada si quieres esta restricción
+if ($matrix.Count -ne $expectedColumnCount) {
+    Write-Output "La matriz no es cuadrada. Tiene $($matrix.Count) filas y $expectedColumnCount columnas."
+    Exit
+}
+
+#aca termina la validacion y la generación
+
 
 if ($producto -ne 0) {
     $resultado = $matrix | ForEach-Object {
@@ -59,6 +103,8 @@ if ($trasponer) {
     }	
 }
 
+
+#obtener el path del archivo de input para generar el de salida independientemente de donde esté
 $filename = [System.IO.Path]::GetFileName($matriz)
 $salida = "salida.$filename"  
 $resultado | ForEach-Object { $_ -join $separador } | Out-File -FilePath $salida
