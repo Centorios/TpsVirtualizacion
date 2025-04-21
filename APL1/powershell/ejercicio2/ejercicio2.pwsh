@@ -1,0 +1,33 @@
+#!/bin/pwsh
+
+param(
+	[Parameter(Mandatory=$true, HelpMessage="Ruta del archivo de la matriz")]
+	[ValidateNotNull()]
+	[string]$matriz,
+	[Parameter(Mandatory=$false, HelpMessage="Valor entero para utilizarse en el producto escalar. No se puede usar junto con -t o -trasponer")]
+	[int]$producto,
+	[Parameter(Mandatory=$false, HelpMessage="Indica que se debe realizar la operación de trasposición sobre la matriz. (no recibe valor adicional, solo el parámetro) No se puede usar junto a –p o –producto.")]
+	[boolean]$trasponer,
+	[Parameter(Mandatory=$true, HelpMessage="Carácter para utilizarse como separador de columnas")]
+	[ValidateNotNull()]
+	[string]$separador = "|"
+)
+
+if ($separador -eq "-")
+{
+	Write-Output "El separador - es invalido"
+	Exit
+}
+
+# Escape delimiter if needed for regex (e.g., "|", ".", etc.)
+$escapedDelimiter = [regex]::Escape($separador)
+
+# Read file and create matrix
+$matrix = Get-Content $matriz | ForEach-Object {
+    $_ -split $escapedDelimiter | ForEach-Object { [int]$_ }
+}
+
+# Wrap each row to preserve as jagged array
+$matrix = $matrix | ForEach-Object { ,$_ }
+
+
