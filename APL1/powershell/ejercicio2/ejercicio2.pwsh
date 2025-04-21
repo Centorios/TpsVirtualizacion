@@ -1,5 +1,3 @@
-
-
 #!/bin/pwsh
 
 param(
@@ -31,22 +29,36 @@ if ( ($producto -ne 0) -and ($trasponer) ) {
 	Exit
 }
 
-
-# Escape delimiter if needed for regex (e.g., "|", ".", etc.)
 $escapedDelimiter = [regex]::Escape($separador)
 
-# Read file and create matrix
-$matrix = Get-Content $matriz | ForEach-Object {
-    $_ -split $escapedDelimiter | ForEach-Object { [int]$_ }
+$matrix = @()
+Get-Content $matriz | ForEach-Object {
+    $row = ($_ -split $escapedDelimiter) | ForEach-Object { [int]$_ }
+    $matrix += ,$row  # Notar la coma para que se agregue como sub-array
 }
 
-# Wrap each row to preserve as jagged array
-$matrix = $matrix | ForEach-Object { ,$_ }
-
-if ( $producto -ne 0 )
-{
-	$result = $matrix | ForEach-Object {
-	$_ | ForEach-Object { $_ * $producto }
-	}
-	$result | ForEach-Object { $_ -join "$separador" } | Out-File -FilePath ./salida
+if ($producto -ne 0) {
+    $resultado = $matrix | ForEach-Object {
+        $fila = $_ | ForEach-Object { $_ * $producto }
+        ,$fila  # mantiene la estructura en forma de matriz (array de arrays)
+    }
 }
+
+if ($trasponer) {
+    # Obtener cantidad de filas y columnas
+    $rowCount = $matrix.Count
+    $colCount = $matrix[0].Count
+
+    $resultado = @()
+    for ($i = 0; $i -lt $colCount; $i++) {
+        $newRow = @()
+        for ($j = 0; $j -lt $rowCount; $j++) {
+            $newRow += $matrix[$j][$i]
+        }
+        $resultado += ,$newRow
+    }	
+}
+
+$filename = [System.IO.Path]::GetFileName($matriz)
+$salida = "salida.$filename"  
+$resultado | ForEach-Object { $_ -join $separador } | Out-File -FilePath $salida
