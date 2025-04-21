@@ -1,3 +1,5 @@
+
+
 #!/bin/pwsh
 
 param(
@@ -7,7 +9,7 @@ param(
 	[Parameter(Mandatory=$false, HelpMessage="Valor entero para utilizarse en el producto escalar. No se puede usar junto con -t o -trasponer")]
 	[int]$producto,
 	[Parameter(Mandatory=$false, HelpMessage="Indica que se debe realizar la operación de trasposición sobre la matriz. (no recibe valor adicional, solo el parámetro) No se puede usar junto a –p o –producto.")]
-	[boolean]$trasponer,
+	[bool]$trasponer,
 	[Parameter(Mandatory=$true, HelpMessage="Carácter para utilizarse como separador de columnas")]
 	[ValidateNotNull()]
 	[string]$separador = "|"
@@ -18,6 +20,17 @@ if ($separador -eq "-")
 	Write-Output "El separador - es invalido"
 	Exit
 }
+
+if ( ($producto -eq 0) -and ( -not $trasponer) ) {
+	Write-Output "necesita indicar una operacion, ya sea trasponer o producto"
+	Exit
+}
+
+if ( ($producto -ne 0) -and ($trasponer) ) {
+	Write-output "no se puede trasponer y hacer producto"
+	Exit
+}
+
 
 # Escape delimiter if needed for regex (e.g., "|", ".", etc.)
 $escapedDelimiter = [regex]::Escape($separador)
@@ -30,4 +43,10 @@ $matrix = Get-Content $matriz | ForEach-Object {
 # Wrap each row to preserve as jagged array
 $matrix = $matrix | ForEach-Object { ,$_ }
 
-
+if ( $producto -ne 0 )
+{
+	$result = $matrix | ForEach-Object {
+	$_ | ForEach-Object { $_ * $producto }
+	}
+	$result | ForEach-Object { $_ -join "$separador" } | Out-File -FilePath ./salida
+}
