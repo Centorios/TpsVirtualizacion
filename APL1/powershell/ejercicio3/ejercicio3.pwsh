@@ -1,17 +1,36 @@
+
 #!/bin/pwsh
 param(
     [Parameter(Mandatory=$true, HelpMessage="Ruta del directorio a analizar")]
     [string]$directorio,
     [Parameter(Mandatory=$true, HelpMessage="Lista de palabras a contabilizar")]
-    [string]$palabras,
+    [string[]]$palabras,
     [Parameter(Mandatory=$true, HelpMessage="Lista de extensiones de archivos a buscar.")]
-    [string]$archivos
+    [string[]]$archivos
 )
 
 
 
+#matufia para asegurar que el parametro archivos llego como array porque anda raro
+if ($archivos.Count -eq 1 -and $archivos[0] -like "*,*") {
+    $archivos = $archivos[0] -split "," | ForEach-Object { $_.Trim() }
+}
 
+#matufia para concatenar el punto y el * que indica todo lo que esta atras
+$ExtensionTypes = $archivos | ForEach-Object { "*." + $_}
 
-$ObjArr = Get-ChildItem -Path $directorio -Recurse -ErrorAction SilentlyContinue -Force
+#matufia para asegurar que el parametro palabras llego como array porque anda raro
+if ($palabras.Count -eq 1 -and $palabras[0] -like "*,*") {
+    $palabras = $palabras[0] -split "," | ForEach-Object { $_.Trim() }
+}
 
-Write-Output $ObjArr
+$ObjArr = Get-ChildItem -Path $directorio -Include $ExtensionTypes -Recurse -ErrorAction SilentlyContinue -Force
+
+#notar el parametro -Raw para que TextContainer no sea un Object[] y sea un string entero para que funcione bien Select-String
+$TextContainer = $ObjArr | ForEach-Object { Get-Content $_ -Raw }
+
+foreach ($palabra in $palabras) {
+    $matches = Select-String -InputObject $TextContainer -Pattern $palabra -AllMatches -CaseSensitive
+    $conteo = ($matches.Matches).Count
+    Write-Output "$palabra : $conteo"
+}
