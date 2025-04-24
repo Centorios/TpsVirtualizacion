@@ -1,0 +1,17 @@
+#!/bin/pwsh
+param(
+    [Parameter(Mandatory=$true, HelpMessage="Ruta del directorio a analizar")]
+    [string]$directorio,
+    [Parameter(Mandatory=$true, HelpMessage="Lista de palabras a contabilizar")]
+    [string]$palabras,
+    [Parameter(Mandatory=$true, HelpMessage="Lista de extensiones de archivos a buscar.")]
+    [string]$archivos
+)
+
+
+
+
+
+$ObjArr = Get-ChildItem -Path $directorio -Recurse -ErrorAction SilentlyContinue -Force
+
+Write-Output $ObjArr
