@@ -1,5 +1,11 @@
 #!/usr/bin/env pwsh
 
+# Integrantes del grupo:
+# - Berti Rodrigo
+# - Burnowicz Alejo
+# - Fernandes Leonel
+# - Federico Agustin
+
 param(
     [string]$directorio,
     [string]$backup,

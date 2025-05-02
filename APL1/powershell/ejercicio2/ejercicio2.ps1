@@ -1,3 +1,9 @@
+# Integrantes del grupo:
+# - Berti Rodrigo
+# - Burnowicz Alejo
+# - Fernandes Leonel
+# - Federico Agustin
+
 <#
 .SYNOPSIS
     Procesa matrices realizando producto escalar y/o transposición.
@@ -33,6 +39,8 @@
 
 .NOTES
 #>
+
+
 
 [CmdletBinding(DefaultParameterSetName='Parametros')]
 Param (

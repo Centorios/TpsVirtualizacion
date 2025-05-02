@@ -1,4 +1,9 @@
 #!/bin/bash
+# Integrantes del grupo:
+# - Berti Rodrigo
+# - Burnowicz Alejo
+# - Fernandes Leonel
+# - Federico Agustin
 
 function ayuda() {
     echo "Bienvenido al script contador de palabras."

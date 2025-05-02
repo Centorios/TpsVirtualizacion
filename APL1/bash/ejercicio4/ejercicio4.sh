@@ -1,4 +1,9 @@
 #!/bin/bash
+# Integrantes del grupo:
+# - Berti Rodrigo
+# - Burnowicz Alejo
+# - Fernandes Leonel
+# - Federico Agustin
 
 # Variables globales
 PID_DIR="/tmp"
@@ -15,6 +20,7 @@ function mostrar_uso() {
 
 # Función para lanzar el demonio en segundo plano
 function lanzar_demonio() {
+    echo $@
     nohup "$SELF_PATH" --daemon "$@" &
     echo "Demonio lanzado para el directorio $DIRECTORIO"
     exit 0
@@ -131,13 +137,13 @@ if ((HELP_MODE)); then
 fi
 
 if (($KILL_MODE)); then
-    if [[-z "$DIRECTORIO"]]; then
+    if [[ -z "$DIRECTORIO" ]]; then
         echo "Necesita especificar el directorio asignado al script para matar"
     fi
     detener_demonio
 fi
 
-if [[-z "$DIRECTORIO" || -z "$CANTIDAD" || -z "$DESTINO"]]; then
+if [[ -z "$DIRECTORIO" || -z "$CANTIDAD" || -z "$DESTINO" ]]; then
     echo "Faltan elementos a especificar para ejecutar el script"
 fi
 
@@ -155,7 +161,8 @@ if (( ! DAEMON_MODE )); then
             rm -f "$PID_FILE"
         fi
     fi
-    lanzar_demonio "$@"
+
+    lanzar_demonio -d "$DIRECTORIO" -s "$DESTINO" -c "$CANTIDAD"
 fi
 
 # Si llegamos acá, es porque estamos en modo demonio

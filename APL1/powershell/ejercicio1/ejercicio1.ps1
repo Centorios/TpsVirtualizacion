@@ -1,3 +1,9 @@
+# Integrantes del grupo:
+# - Berti Rodrigo
+# - Burnowicz Alejo
+# - Fernandes Leonel
+# - Federico Agustin
+
 <#
 .SYNOPSIS
 Procesamiento de datos meteorológicos.
@@ -32,6 +38,8 @@ None
 .OUTPUTS
 None
 #>
+
+
 
 [CmdletBinding(DefaultParameterSetName='Parametros')]
 Param(
