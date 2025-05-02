@@ -1,145 +1,162 @@
 #!/bin/bash
 
-function ayuda() {
-    echo "Bienvenido al script contador de palabras."
-    echo "Debe especificar los siguientes argumentos:"
-    echo "  -d, --directorio <directorio>   Especifica el directorio donde se contengan los archivos a analizar."
-    echo "  -s, --salida                    Ruta del directorio donde se van a crear los backups."   
-    echo "  -c, --cantidad                  Cantidad de archivos a ordenar antes de generar un backup."
-    echo "  -k, --kill                      Flag que se utiliza para indicar que el script debe detener el demonio previamente iniciado."
-    echo "  -h, --help                      Muestra esta ayuda."
+# Variables globales
+PID_DIR="/tmp"
+SCRIPT_NAME=$(basename "$0")
+SELF_PATH="$(realpath "$0")"
+
+# Función para mostrar uso
+function mostrar_uso() {
+    echo "Uso:"
+    echo "  $SCRIPT_NAME -d <directorio> -s <backup_dir> -c <cantidad>"
+    echo "  $SCRIPT_NAME -d <directorio> -k"
+    exit 0
 }
 
-function validarParametros(){
-    #que el directorio exista
-    if [ ! -d "$directorio" ]; then
-        echo "El directorio $directorio no existe."
-        exit 1
-    fi
-    #que el directorio no este vacio
-    if [ -z "$(ls -A $directorio)" ]; then
-        echo "El directorio $directorio esta vacio."
-        exit 1
-    fi
-    #que el directorio tenga permisos de lectura
-    if [ ! -r "$directorio" ]; then
-        echo "No tiene permisos de lectura en el directorio $directorio."
-        exit 1
-    fi
-    #que el directorio tenga permisos de escritura
-    if [ ! -w "$directorio" ]; then
-        echo "No tiene permisos de escritura en el directorio $directorio."
-        exit 1
-    fi
+# Función para lanzar el demonio en segundo plano
+function lanzar_demonio() {
+    nohup "$SELF_PATH" --daemon "$@" &
+    echo "Demonio lanzado para el directorio $DIRECTORIO"
+    exit 0
+}
 
-    #que la ruta de salida exista
-    if [ ! -d "$salida" ]; then
-        echo "El directorio $salida no existe."
-        exit 1
-    fi
-
-    #que la salida tenga permisos de escritura
-    if [ ! -w "$salida" ]; then
-        echo "No tiene permisos de escritura en el directorio $salida."
-        exit 1
-    fi
-
-    #que la cantidad de archivos sea un numero
-    if ! [[ "$cantidad" =~ ^[0-9]+$ ]]; then
-        echo "La cantidad de archivos debe ser un numero."
-        exit 1
-    fi
-    #que la cantidad de archivos sea mayor a 0
-    if [ "$cantidad" -le 0 ]; then
-        echo "La cantidad de archivos debe ser mayor a 0."
-        exit 1
-    fi
-
-    #si especifico kill, no puedo especificar directorio, salida ni cantidad
-    if [ "$kill" = true ]; then
-        if [ -n "$directorio" ] || [ -n "$salida" ] || [ -n "$cantidad" ]; then
-            echo "No se pueden especificar los argumentos -d, -s o -c junto con -k."
-            exit 1
+# Función para detener el demonio
+function detener_demonio() {
+    PID_FILE="$PID_DIR/$(basename "$DIRECTORIO").pid"
+    if [[ -f "$PID_FILE" ]]; then
+        PID=$(cat "$PID_FILE")
+        if kill "$PID" 2>/dev/null; then
+            echo "Demonio detenido correctamente."
+            rm -f "$PID_FILE"
+        else
+            echo "No se pudo detener el demonio."
         fi
+    else
+        echo "No hay demonio corriendo para el directorio $DIRECTORIO."
+    fi
+    exit 0
+}
+
+# Función principal del demonio
+function demonio() {
+    PID_FILE="$PID_DIR/$(basename "$DIRECTORIO").pid"
+    echo $$ > "$PID_FILE"
+
+    # Ordenar archivos existentes antes de empezar
+    ordenar_archivos
+
+    inotifywait -m -e create,moved_to --format "%f" "$DIRECTORIO" | while read ARCHIVO; do
+        procesar_archivo "$ARCHIVO"
+    done
+}
+
+# Función para ordenar archivos existentes
+function ordenar_archivos() {
+    for archivo in "$DIRECTORIO"/*; do
+        if [[ -f "$archivo" ]]; then
+            procesar_archivo "$(basename "$archivo")"
+        fi
+    done
+}
+
+# Función para procesar un archivo nuevo
+function procesar_archivo() {
+    local archivo="$1"
+    local extension="${archivo##*.}"
+    extension_upper=$(echo "$extension" | tr '[:lower:]' '[:upper:]')
+    destino="$DESTINO/$extension_upper"
+    mkdir -p "$destino"
+    mv "$DIRECTORIO/$archivo" "$destino/"
+    
+    ((CONTADOR++))
+    if (( CONTADOR >= CANTIDAD )); then
+        generar_backup
+        CONTADOR=0
     fi
 }
 
-options=$(getopt -o d:s:c:kh --long help,directorio:,salida:,kill -- "$@" 2>&1)
-if [ $? -ne 0 ]; then
-    # Extraemos el mensaje de error limpio
-    error_msg=$(echo "$options" | sed -e 's/^[^:]*://' -e 's/^ *//')
-    
-    # Verificamos si el error es por falta de argumento
-    if [[ "$error_msg" == *"requires an argument"* ]]; then
-        option_missing=$(echo "$error_msg" | grep -oP "'\K[^']+")
-        echo "Error: La opción -$option_missing requiere un valor"
-    else
-        echo "Error en las opciones: $error_msg"
-    fi
-    exit 1
-fi
+# Función para generar backup
+function generar_backup() {
+    fecha=$(date '+%Y%m%d_%H%M%S')
+    nombre_backup="$(basename "$DIRECTORIO")_${fecha}.zip"
+    zip -r "$DESTINO/$nombre_backup" "$DIRECTORIO" > /dev/null
+    echo "Backup generado: $nombre_backup"
+}
 
-eval set -- "$options"
+# ===========================
+#          MAIN
+# ===========================
 
-while true
-do
+# Parseo de argumentos
+DIRECTORIO=""
+DESTINO=""
+CANTIDAD=""
+KILL_MODE=0
+DAEMON_MODE=0
+HELP_MODE=0
+
+CONTADOR=0
+
+while [[ $# -gt 0 ]]; do
     case "$1" in
-        -d | --directorio) # case "-e":
-            if [[ "$2" == -* ]]; then
-                echo "Error: Después de -d o --directorio debe especificar una ruta válida."
-                exit 1
-            fi
-            directorio="$2"
+        -d|--directorio)
+            DIRECTORIO="$2"
             shift 2
             ;;
-        -s | --salida)
-            if [[ "$2" == -* ]]; then
-                echo "Error: Después de -s o --salida debe especificar un directorio de salida."
-                exit 1
-            fi
-            palabras="$2"
+        -s|--salida|--backup)
+            DESTINO="$2"
             shift 2
             ;;
-        -c | --cantidad)
-            if [[ "$2" == -* ]]; then
-                echo "Error: Después de -c o --cantidad debe especificar una cantidad de archivos."
-                exit 1
-            fi
-            IFS=',' read -ra extensiones <<< "$2" #Guardamos las extensiones en un array
+        -c|--cantidad)
+            CANTIDAD="$2"
             shift 2
             ;;
-                -c | --cantidad)
-            if [[ "$2" == -* ]]; then
-                echo "Error: Después de -c o --cantidad debe especificar una cantidad de archivos."
-                exit 1
-            fi
-            IFS=',' read -ra extensiones <<< "$2" #Guardamos las extensiones en un array
-            shift 2
-            ;;
-        -k | --kill)
-            kill=true
+        -k|--kill)
+            KILL_MODE=1
             shift
             ;;
-        -h | --help)
-            ayuda
-            exit 0
-            ;;
-        --) # case "--":
+        --daemon)
+            DAEMON_MODE=1
             shift
-            break
             ;;
-        *) # default: 
-            echo "Error: Opcion no reconocida."
-            exit 1
+        -h|--help)
+            HELP_MODE=1
+            shift
             ;;
     esac
 done
-
-validarParametros
-echo "Validacion de parametros correcta."
-
-(
-    exec > /dev/null 2>&1
-
     
-)
+if ((HELP_MODE)); then
+    mostrar_uso
+fi
+
+if (($KILL_MODE)); then
+    if [[-z "$DIRECTORIO"]]; then
+        echo "Necesita especificar el directorio asignado al script para matar"
+    fi
+    detener_demonio
+fi
+
+if [[-z "$DIRECTORIO" || -z "$CANTIDAD" || -z "$DESTINO"]]; then
+    echo "Faltan elementos a especificar para ejecutar el script"
+fi
+
+
+if (( ! DAEMON_MODE )); then
+    # Validar que no haya otro demonio para este directorio
+    PID_FILE="$PID_DIR/$(basename "$DIRECTORIO").pid"
+    if [[ -f "$PID_FILE" ]]; then
+        PID=$(cat "$PID_FILE")
+        if ps -p "$PID" > /dev/null 2>&1; then
+            echo "Ya existe un demonio corriendo para $DIRECTORIO (PID: $PID)"
+            exit 1
+        else
+            echo "PID muerto encontrado, limpiando..."
+            rm -f "$PID_FILE"
+        fi
+    fi
+    lanzar_demonio "$@"
+fi
+
+# Si llegamos acá, es porque estamos en modo demonio
+demonio
