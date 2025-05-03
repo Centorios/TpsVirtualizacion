@@ -20,10 +20,10 @@ function mostrar_uso() {
 
 # Función para lanzar el demonio en segundo plano
 function lanzar_demonio() {
-    echo $@
     nohup "$SELF_PATH" --daemon "$@" &
     echo "Demonio lanzado para el directorio $DIRECTORIO"
     exit 0
+
 }
 
 # Función para detener el demonio
@@ -48,12 +48,20 @@ function demonio() {
     PID_FILE="$PID_DIR/$(basename "$DIRECTORIO").pid"
     echo $$ > "$PID_FILE"
 
-    # Ordenar archivos existentes antes de empezar
+
+    #Ordenar archivos existentes antes de empezar
     ordenar_archivos
 
-    inotifywait -m -e create,moved_to --format "%f" "$DIRECTORIO" | while read ARCHIVO; do
-        procesar_archivo "$ARCHIVO"
-    done
+
+    inotifywait  -m -e create,moved_to --format "%f" "$DIRECTORIO" | while read ARCHIVO; 
+
+    do procesar_archivo "$ARCHIVO"
+	if [[ -f "$PID_FILE" ]]; then
+	exit 0
+	fi
+   done
+
+
 }
 
 # Función para ordenar archivos existentes
@@ -102,6 +110,7 @@ DAEMON_MODE=0
 HELP_MODE=0
 
 CONTADOR=0
+
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -163,7 +172,7 @@ if (( ! DAEMON_MODE )); then
     fi
 
     lanzar_demonio -d "$DIRECTORIO" -s "$DESTINO" -c "$CANTIDAD"
+    exit 0
 fi
 
-# Si llegamos acá, es porque estamos en modo demonio
 demonio
