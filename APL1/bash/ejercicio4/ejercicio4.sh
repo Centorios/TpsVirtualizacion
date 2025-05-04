@@ -30,8 +30,13 @@ function lanzar_demonio() {
 function detener_demonio() {
     PID_FILE="$PID_DIR/$(basename "$DIRECTORIO").pid"
     if [[ -f "$PID_FILE" ]]; then
-        PID=$(cat "$PID_FILE")
-        if kill "$PID" 2>/dev/null; then
+        PID=$(sed -n "1p" "$PID_FILE")
+        #echo "$PID"
+        PIDINOTIFY=$(sed -n "2p" "$PID_FILE")
+        #echo "$PIDNOTIFY"
+        PIDINOTIFY1=$(sed -n "3p" "$PID_FILE")
+        echo "$PIDNOTIFY1"
+        if (kill "$PID" 2>/dev/null) & (kill "$PIDINOTIFY" 2>/dev/null) & kill "$PIDINOTIFY1" 2>/dev/null; then
             echo "Demonio detenido correctamente."
             rm -f "$PID_FILE"
         else
@@ -44,7 +49,7 @@ function detener_demonio() {
 }
 
 # Función principal del demonio
-function demonio() {
+function demonio2() {
     PID_FILE="$PID_DIR/$(basename "$DIRECTORIO").pid"
     echo $$ > "$PID_FILE"
 
@@ -53,15 +58,69 @@ function demonio() {
     ordenar_archivos
 
 
-    inotifywait  -m -e create,moved_to --format "%f" "$DIRECTORIO" | while read ARCHIVO; 
+  #  inotifywait  -m -e create,moved_to --format "%f" "$DIRECTORIO" | while read ARCHIVO; 
 
-    do procesar_archivo "$ARCHIVO"
-	if [[ -f "$PID_FILE" ]]; then
-	exit 0
-	fi
+ #   do procesar_archivo "$ARCHIVO"
+	#if [[ -f "$PID_FILE" ]]; then
+	#exit 0
+#	fi
+ #  done
+
+exec 3< <(inotifywait -m -e create,moved_to --format "%f" "$DIRECTORIO")
+
+while read -r ARCHIVO <&3; do
+    # Si se encuentra la señal de parada, salimos del bucle
+    if [[ -f "$PID_FILE" ]]; then
+        echo "Señal de parada detectada. Terminando demonio..."
+        break
+    fi
+
+    procesar_archivo "$ARCHIVO"
+done
+   while [[1]]
+   do
+   echo "hola mundo"
+   sleep Miliseconds 500
    done
 
 
+}
+
+function demonio() {
+    PID_FILE="$PID_DIR/$(basename "$DIRECTORIO").pid"
+    echo $$ >> "$PID_FILE"
+    echo "PID_DIR: $$"
+
+    # Ordenar archivos existentes antes de empezar
+    ordenar_archivos
+
+    # Iniciar inotifywait como coproc
+    coproc INOTIFY_PROC { inotifywait -m -e create,moved_to --format "%f" "$DIRECTORIO"; }
+    INOTIFY_PID=$INOTIFY_PROC_PID
+    echo $INOTIFY_PID>> "$PID_FILE"
+    echo "INOTIFY_PID: $INOTIFY_PID"
+    var1=1
+    let INOTIFY_PID1=$var1+$INOTIFY_PID
+    echo "$INOTIFY_PID1">>"$PID_FILE"
+    echo "INOTIFY_PID1: $INOTIFY_PID1"
+    
+
+    # Asegurar que se limpie todo al terminar
+    trap 'echo "Saliendo..."; kill "$INOTIFY_PID" 2>/dev/null; rm -f "$PID_FILE"; exit 0' SIGTERM SIGINT EXIT
+
+    while read -r ARCHIVO <&"${INOTIFY_PROC[0]}"; do
+        if [[ ! -f "$PID_FILE" ]]; then
+            echo "Señal de parada detectada. Terminando demonio..."
+            break
+        fi
+        procesar_archivo "$ARCHIVO"
+    done
+
+    # Redundancia por seguridad (en caso de no entrar en trap)
+    kill "$INOTIFY_PID" 2>/dev/null
+    wait "$INOTIFY_PID" 2>/dev/null
+    rm -f "$PID_FILE"
+    echo "Demonio terminado."
 }
 
 # Función para ordenar archivos existentes
@@ -78,13 +137,14 @@ function procesar_archivo() {
     local archivo="$1"
     local extension="${archivo##*.}"
     extension_upper=$(echo "$extension" | tr '[:lower:]' '[:upper:]')
-    destino="$DESTINO/$extension_upper"
+    destino="$DIRECTORIO/$extension_upper"
     mkdir -p "$destino"
     mv "$DIRECTORIO/$archivo" "$destino/"
     
     ((CONTADOR++))
-    if (( CONTADOR >= CANTIDAD )); then
+    if (( CONTADOR >= CANTIDAD )); then      
         generar_backup
+        sleep 2
         CONTADOR=0
     fi
 }
@@ -161,7 +221,8 @@ if (( ! DAEMON_MODE )); then
     # Validar que no haya otro demonio para este directorio
     PID_FILE="$PID_DIR/$(basename "$DIRECTORIO").pid"
     if [[ -f "$PID_FILE" ]]; then
-        PID=$(cat "$PID_FILE")
+        PID=$(sed -n "1p" "$PID_FILE")
+        echo " PID: $PID"
         if ps -p "$PID" > /dev/null 2>&1; then
             echo "Ya existe un demonio corriendo para $DIRECTORIO (PID: $PID)"
             exit 1

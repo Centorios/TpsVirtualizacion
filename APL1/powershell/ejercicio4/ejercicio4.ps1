@@ -16,7 +16,7 @@ param(
 )
 
 # Variables globales
-$PID_DIR = "$env:TEMP"
+$PID_DIR = "/tmp"
 $SCRIPT_NAME = Split-Path -Leaf $MyInvocation.MyCommand.Path
 $SELF_PATH = (Get-Item $MyInvocation.MyCommand.Path).FullName
 
@@ -30,7 +30,7 @@ function Mostrar-Uso {
 
 # Función para lanzar el demonio en segundo plano
 function Lanzar-Demonio {
-    Start-Process -FilePath "pwsh" -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$SELF_PATH`" --daemon -directorio `"$directorio`" -backup `"$backup`" -cantidad $cantidad" -WindowStyle Hidden
+    Start-Process -FilePath "pwsh" -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$SELF_PATH`" --daemon -directorio `"$directorio`" -backup `"$backup`" -cantidad $cantidad"
     Write-Output "Demonio lanzado para el directorio $directorio"
     exit 0
 }
@@ -39,9 +39,9 @@ function Lanzar-Demonio {
 function Detener-Demonio {
     $pidFile = Join-Path $PID_DIR ("$(Split-Path $directorio -Leaf).pid")
     if (Test-Path $pidFile) {
-        $pid = Get-Content $pidFile
+        $pidOriginal = Get-Content $pidFile
         try {
-            Stop-Process -Id $pid -ErrorAction Stop
+            Stop-Process -Id $pidOriginal -ErrorAction Stop
             Write-Output "Demonio detenido correctamente."
             Remove-Item $pidFile -Force
         } catch {
@@ -64,7 +64,7 @@ function Ordenar-Archivos {
 function Procesar-Archivo($archivo) {
     $extension = ($archivo | Split-Path -Extension).TrimStart('.')
     $extensionUpper = $extension.ToUpper()
-    $destino = Join-Path $backup $extensionUpper
+    $destino = Join-Path $directorio $extensionUpper
     if (-not (Test-Path $destino)) {
         New-Item -ItemType Directory -Path $destino | Out-Null
     }
@@ -141,9 +141,9 @@ if (-not $directorio -or -not $cantidad -or -not $backup) {
 $pidFile = Join-Path $PID_DIR ("$(Split-Path $directorio -Leaf).pid")
 if (-not $daemon) {
     if (Test-Path $pidFile) {
-        $pid = Get-Content $pidFile
-        if (Get-Process -Id $pid -ErrorAction SilentlyContinue) {
-            Write-Output "Ya existe un demonio corriendo para $directorio (PID: $pid)"
+        $pidOriginal = Get-Content $pidFile
+        if (Get-Process -Id $pidOriginal -ErrorAction SilentlyContinue) {
+            Write-Output "Ya existe un demonio corriendo para $directorio (PID: $pidOriginal)"
             exit 1
         } else {
             Write-Output "PID muerto encontrado, limpiando..."
