@@ -20,7 +20,7 @@ function mostrar_uso() {
 
 # Función para lanzar el demonio en segundo plano
 function lanzar_demonio() {
-    nohup "$SELF_PATH" --daemon "$@" &
+    nohup "$SELF_PATH" --daemon "$@" > /dev/null 2>&1 &
     echo "Demonio lanzado para el directorio $DIRECTORIO"
     exit 0
 
