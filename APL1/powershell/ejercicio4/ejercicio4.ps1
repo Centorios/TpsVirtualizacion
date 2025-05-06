@@ -8,7 +8,7 @@
 
 param(
     [string]$directorio,
-    [string]$backup,
+    [string]$salida,
     [int]$cantidad,
     [switch]$kill,
     [switch]$daemon,
@@ -23,14 +23,14 @@ $SELF_PATH = (Get-Item $MyInvocation.MyCommand.Path).FullName
 # Función para mostrar uso
 function Mostrar-Uso {
     Write-Output "Uso:"
-    Write-Output "  .\$SCRIPT_NAME -directorio <directorio> -backup <backup_dir> -cantidad <cantidad>"
+    Write-Output "  .\$SCRIPT_NAME -directorio <directorio> -salida <salida_dir> -cantidad <cantidad>"
     Write-Output "  .\$SCRIPT_NAME -directorio <directorio> -kill"
     exit 0
 }
 
 # Función para lanzar el demonio en segundo plano
 function Lanzar-Demonio {
-    Start-Process -FilePath "pwsh" -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$SELF_PATH`" --daemon -directorio `"$directorio`" -backup `"$backup`" -cantidad $cantidad"
+    Start-Process -FilePath "pwsh" -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$SELF_PATH`" --daemon -directorio `"$directorio`" -salida `"$salida`" -cantidad $cantidad"
     Write-Output "Demonio lanzado para el directorio $directorio"
     exit 0
 }
@@ -58,6 +58,11 @@ function Ordenar-Archivos {
     Get-ChildItem -Path $directorio -File | ForEach-Object {
         Procesar-Archivo $_.Name
     }
+    if($script:contador -ge $cantidad) {
+     Start-Sleep -Seconds 2
+     Generar-Backup
+     $script:contador=0
+     }
 }
 
 # Función para procesar un archivo
@@ -71,7 +76,7 @@ function Procesar-Archivo($archivo) {
     Move-Item -Path (Join-Path $directorio $archivo) -Destination $destino
 
     $script:contador++
-    if ($script:contador -ge $cantidad) {
+    if ($bandera -eq 1 -and $script:contador -ge $cantidad) {
         Generar-Backup
         $script:contador = 0
     }
@@ -80,9 +85,10 @@ function Procesar-Archivo($archivo) {
 # Función para generar backup
 function Generar-Backup {
     $fecha = Get-Date -Format "yyyyMMdd_HHmmss"
-    $nombreBackup = "$(Split-Path $directorio -Leaf)_$fecha.zip"
-    Compress-Archive -Path (Join-Path $directorio '*') -DestinationPath (Join-Path $backup $nombreBackup)
-    Write-Output "Backup generado: $nombreBackup"
+    $nombresalida = "$(Split-Path $directorio -Leaf)_$fecha.zip"
+    #Compress-Archive -Path (Join-Path $directorio '*') -DestinationPath (Join-Path $salida $nombresalida)
+    zip -r "$salida/$nombresalida" "$directorio" > /dev/null
+    Write-Output "Backup generado: $nombresalida"
 }
 
 # Función principal del demonio
@@ -90,7 +96,11 @@ function Demonio {
     $pidFile = Join-Path $PID_DIR ("$(Split-Path $directorio -Leaf).pid")
     $PID | Out-File $pidFile -Force
 
+    $bandera=0
+
     Ordenar-Archivos
+
+    $bandera=1
 
     $watcher = New-Object System.IO.FileSystemWatcher
     $watcher.Path = (Resolve-Path $directorio).Path
@@ -111,7 +121,7 @@ function Demonio {
     }
 
     while ($true) {
-        Start-Sleep -Seconds 5
+        Start-Sleep -Seconds 3
     }
 }
 
@@ -132,7 +142,7 @@ if ($kill) {
     Detener-Demonio
 }
 
-if (-not $directorio -or -not $cantidad -or -not $backup) {
+if (-not $directorio -or -not $cantidad -or -not $salida) {
     Write-Output "Faltan elementos a especificar para ejecutar el script"
     exit 1
 }
