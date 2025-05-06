@@ -6,6 +6,32 @@
 # - Fernandes Leonel
 # - Federico Agustin
 
+<#
+.SYNOPSIS
+Muestra información sobre cómo usar el script contador de palabras.
+
+.DESCRIPTION
+Este script analiza archivos de texto dentro de un directorio especificado y cuenta la aparición de palabras específicas.
+
+.PARAMETER Directorio
+Especifica el directorio donde se encuentran los textos a analizar.
+
+.PARAMETER Palabras
+Lista de palabras a contar, separadas por comas.
+
+.PARAMETER Archivos
+Lista de extensiones de archivos a buscar, separadas por comas.
+
+.PARAMETER Help
+Muestra esta ayuda.
+
+.EXAMPLE
+.\ejercicio3.ps1 -Directorio "C:\MisArchivos" -Palabras "palabra1,palabra2" -Archivos "txt,log"
+
+Muestra la ayuda del script con una descripción de los parámetros requeridos.
+#>
+
+
 param(
     [Parameter(Mandatory=$true, HelpMessage="Ruta del directorio a analizar")]
     [string]$directorio,
@@ -15,6 +41,43 @@ param(
     [string[]]$archivos
 )
 
+function Get-Ayuda {
+    Write-Host "Bienvenido al script contador de palabras."
+    Write-Host "Debe especificar los siguientes argumentos:"
+    Write-Host " -Directorio <directorio>   Especifica el directorio donde se contengan textos a analizar."
+    Write-Host " -Palabras                  Lista de palabras a contar separadas por comas."   
+    Write-Host " -Archivos                  Lista de extensiones de archivos a buscar separadas por comas."
+    Write-Host " -Help                      Muestra esta ayuda."
+}
+
+function validacionDeParametros{
+    if (-not $directorio){
+        Write-Host "Error: Debe especificar un directorio."
+        exit 1
+    }
+    if (-not $palabras){
+        Write-Host "Error: Debe especificar al menos una palaba a buscar."
+        exit 1
+    }
+    if(-not $archivos){
+        Write-Host "Error: Debe especificar al menos una extension de archivo a buscar."
+        exit 1
+    }
+
+    # Validamos que el directorio exista
+    if (-not (Test-Path -Path $directorio)){
+        Write-Host "Error: El directorio $directorio no existe."
+        exit 1
+    }
+
+    # Validamos que el directorio tenga permisos de lectura
+    if (-not (Test-Path -Path $directorio -PathType Container)){
+        Write-Host "Error: No se tienen permisos de lectura en el directorio $directorio."
+        exit 1
+    }
+}
+
+validacionDeParametros
 
 
 #matufia para asegurar que el parametro archivos llego como array porque anda raro
