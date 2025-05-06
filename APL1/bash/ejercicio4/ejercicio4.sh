@@ -53,37 +53,34 @@ function demonio2() {
     PID_FILE="$PID_DIR/$(basename "$DIRECTORIO").pid"
     echo $$ > "$PID_FILE"
 
-
     #Ordenar archivos existentes antes de empezar
     ordenar_archivos
 
+    #  inotifywait  -m -e create,moved_to --format "%f" "$DIRECTORIO" | while read ARCHIVO; 
 
-  #  inotifywait  -m -e create,moved_to --format "%f" "$DIRECTORIO" | while read ARCHIVO; 
+    #   do procesar_archivo "$ARCHIVO"
+        #if [[ -f "$PID_FILE" ]]; then
+        #exit 0
+    #	fi
+    #  done
 
- #   do procesar_archivo "$ARCHIVO"
-	#if [[ -f "$PID_FILE" ]]; then
-	#exit 0
-#	fi
- #  done
+    exec 3< <(inotifywait -m -e create,moved_to --format "%f" "$DIRECTORIO")
 
-exec 3< <(inotifywait -m -e create,moved_to --format "%f" "$DIRECTORIO")
+    while read -r ARCHIVO <&3; do
+        # Si se encuentra la señal de parada, salimos del bucle
+        if [[ -f "$PID_FILE" ]]; then
+            echo "Señal de parada detectada. Terminando demonio..."
+            break
+        fi
 
-while read -r ARCHIVO <&3; do
-    # Si se encuentra la señal de parada, salimos del bucle
-    if [[ -f "$PID_FILE" ]]; then
-        echo "Señal de parada detectada. Terminando demonio..."
-        break
-    fi
+        procesar_archivo "$ARCHIVO"
+    done
 
-    procesar_archivo "$ARCHIVO"
-done
-   while [[1]]
-   do
-   echo "hola mundo"
-   sleep Miliseconds 500
-   done
-
-
+    while [[1]]
+    do
+        echo "hola mundo"
+        sleep Miliseconds 500
+    done
 }
 
 function demonio() {
