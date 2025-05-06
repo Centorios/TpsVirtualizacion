@@ -1,9 +1,3 @@
-# Integrantes del grupo:
-# - Berti Rodrigo
-# - Burnowicz Alejo
-# - Fernandes Leonel
-# - Federico Agustin
-
 <#
 .SYNOPSIS
     Consulta la API de Fruityvice para obtener información sobre frutas.
@@ -43,7 +37,8 @@ function Get-Ayuda {
 }
 
 $API_URL="https://www.fruityvice.com/api/fruit"
-$CACHE_DIR="./cache"
+$CACHE_DIR="/tmp/cacheEj5_Pwsh"
+$CACHE_TTL = 3600 # 1 hora
 
 if ( -not (Test-Path -Path $CACHE_DIR)){
     New-Item -ItemType Directory -Path $CACHE_DIR
@@ -71,6 +66,29 @@ function validarParametros(){
     }
 }
 
+function cache_valido(){
+    param(
+        [string]$archivoCache
+    )
+    if (-not (Test-Path -Path $archivoCache)){
+        return $false
+    }
+    $modTime = (Get-Item $archivoCache).LastWriteTime
+    $ahora = [DateTime]::UtcNow
+    $diferenciaTiempo = ($ahora - $modTime).TotalSeconds
+
+    if ($diferenciaTiempo -gt $CACHE_TTL){
+        try{
+            Remove-Item $archivoCache
+        }catch{
+            Write-Host "Error: No se pudo eliminar el archivo de cache $archivoCache"
+        }
+        
+        return $false #cache expirado
+    }
+    return $true
+}
+
 function buscarFruta(){
     Param(
         [ValidateSet("id", "name")]
@@ -82,8 +100,8 @@ function buscarFruta(){
 
     switch ($query){
         "id" {            
-            # Verifico si la fruta ya fue consultada
-            if (Test-Path -Path (Join-Path -Path $CACHE_DIR -ChildPath "$valor.json")){
+            # Verifico si la fruta ya fue consultada y es valida la cache
+            if (cache_valido -archivoCache (Join-Path -Path $CACHE_DIR -ChildPath "$valor.json")){
                 Write-Host "La fruta con id $valor ya fue consultada."
                 $fullPathFruta = Join-Path -Path $CACHE_DIR -ChildPath "$valor.json"
                 $jsonFruta = Get-Content -Path $fullPathFruta | ConvertFrom-Json 
@@ -125,10 +143,10 @@ function buscarFruta(){
             $archivosJson = Get-ChildItem -Path $CACHE_DIR -Filter "*.json"
 
             foreach ($archivo in $archivosJson){
-                
+
                 $contenidoJson = Get-Content -Path $archivo.FullName | ConvertFrom-Json
 
-                if ($contenidoJson.name -eq $valor){
+                if ($contenidoJson.name -eq $valor -and (cache_valido -archivoCache $archivo.FullName)){
                     Write-Host "La fruta con nombre $valor ya fue consultada."
                     $pathFruta = $contenidoJson.id.ToString() + ".json"
                     $fullPathFruta = Join-Path -Path $CACHE_DIR -ChildPath $pathFruta
