@@ -130,17 +130,34 @@ function Demonio {
     $watcher.EnableRaisingEvents = $true
     $watcher.Filter = '*'
 
+
+    $global:procesadosRecientes = @{}
+
     Register-ObjectEvent $watcher Created -SourceIdentifier FileCreated -Action {
-        $nombreArchivo = $Event.SourceEventArgs.Name
-        Start-Sleep -Milliseconds 1000
-        Procesar-Archivo $nombreArchivo
-    }
+    	$nombreArchivo = $Event.SourceEventArgs.Name
+    	$ahora = Get-Date
+
+    	if ($global:procesadosRecientes[$nombreArchivo] -and ($ahora - $global:procesadosRecientes[$nombreArchivo]).TotalSeconds -lt 5) {
+        	return  # Ya fue procesado recientemente
+    	}
+
+    	$global:procesadosRecientes[$nombreArchivo] = $ahora
+    	Start-Sleep -Milliseconds 1000
+    	Procesar-Archivo $nombreArchivo
+	}
 
     Register-ObjectEvent $watcher Changed -SourceIdentifier FileChanged -Action {
-        $nombreArchivo = $Event.SourceEventArgs.Name
-        Start-Sleep -Milliseconds 1000
-        Procesar-Archivo $nombreArchivo
-    }
+    	$nombreArchivo = $Event.SourceEventArgs.Name
+    	$ahora = Get-Date
+
+    	if ($global:procesadosRecientes[$nombreArchivo] -and ($ahora - $global:procesadosRecientes[$nombreArchivo]).TotalSeconds -lt 5) {
+        	return  # Ya fue procesado recientemente
+    	}
+
+    	$global:procesadosRecientes[$nombreArchivo] = $ahora
+    	Start-Sleep -Milliseconds 1000
+    	Procesar-Archivo $nombreArchivo
+	}
 
     while ($true) {
         Start-Sleep -Seconds 4
