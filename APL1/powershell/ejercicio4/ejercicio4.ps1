@@ -73,13 +73,34 @@ function Procesar-Archivo($archivo) {
     if (-not (Test-Path $destino)) {
         New-Item -ItemType Directory -Path $destino | Out-Null
     }
-    Move-Item -Path (Join-Path $directorio $archivo) -Destination $destino
+    #Move-Item -Path (Join-Path $directorio $archivo) -Destination $destino
+    Mover-archivo (Join-Path $directorio $archivo) $destino
 
     $script:contador++
     if ($bandera -eq 1 -and $script:contador -ge $cantidad) {
         Generar-Backup
         $script:contador = 0
     }
+}
+
+function Mover-archivo {
+    param (
+        [string]$archivo,
+        [string]$destino
+    )
+
+    $nombreArchivo = Split-Path $archivo -Leaf
+    $nombreBase = [System.IO.Path]::GetFileNameWithoutExtension($nombreArchivo)
+    $extension = [System.IO.Path]::GetExtension($archivo)
+    $nuevoNombre = $nombreArchivo
+    $contador = 1
+
+    while (Test-Path (Join-Path $destino $nuevoNombre)) {
+        $nuevoNombre = "$nombreBase" + "_$contador$extension"
+        $contador++
+    }
+
+    Move-Item -Path $archivo -Destination (Join-Path $destino $nuevoNombre)
 }
 
 # Función para generar backup
@@ -134,6 +155,7 @@ if ($help) {
     Mostrar-Uso
 }
 
+
 if ($kill) {
     if (-not $directorio) {
         Write-Output "Necesita especificar el directorio asignado al script para matar"
@@ -145,6 +167,11 @@ if ($kill) {
 if (-not $directorio -or -not $cantidad -or -not $salida) {
     Write-Output "Faltan elementos a especificar para ejecutar el script"
     exit 1
+}
+
+if (-not [int]::TryParse($cantidad, [ref]$null)) {
+    Write-Output "El valor especificado en -cantidad NO es un numero"
+    
 }
 
 # Verificar si ya hay demonio corriendo

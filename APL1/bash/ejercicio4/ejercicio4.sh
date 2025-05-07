@@ -1,4 +1,5 @@
 #!/bin/bash
+
 # Integrantes del grupo:
 # - Berti Rodrigo
 # - Burnowicz Alejo
@@ -114,13 +115,54 @@ function procesar_archivo() {
     extension_upper=$(echo "$extension" | tr '[:lower:]' '[:upper:]')
     destino="$DIRECTORIO/$extension_upper"
     mkdir -p "$destino"
-    mv "$DIRECTORIO/$archivo" "$destino/"
+    #mv "$DIRECTORIO/$archivo" "$destino/"
+    mover_archivo "$DIRECTORIO/$archivo" "$destino"
     
     ((CONTADOR++))
     if ((bandera & CONTADOR >= CANTIDAD )); then      
         generar_backup
         CONTADOR=0
     fi
+}
+
+function mover_archivo() {
+    archivo_origen="$1"
+    directorio_destino="$2"
+
+    # Verificación de existencia
+    if [[ ! -f "$archivo_origen" ]]; then
+        echo "Error: El archivo origen no existe."
+        return 1
+    fi
+
+    if [[ ! -d "$directorio_destino" ]]; then
+        echo "Error: El directorio destino no existe."
+        return 1
+    fi
+
+    # Obtener nombre del archivo
+    nombre_archivo=$(basename -- "$archivo_origen")
+    nombre="${nombre_archivo%.*}"
+    local extension="${nombre_archivo##*.}"
+
+    # Manejar archivos sin extensión
+    if [[ "$nombre" == "$extension" ]]; then
+        extension=""
+    else
+        extension=".$extension"
+    fi
+
+    nuevo_nombre="$nombre$extension"
+    contador=1
+
+    # Evitar sobrescribir
+    while [[ -e "$directorio_destino/$nuevo_nombre" ]]; do
+        nuevo_nombre="${nombre}_$contador$extension"
+        ((contador++))
+    done
+
+    # Mover el archivo
+    mv "$archivo_origen" "$directorio_destino/$nuevo_nombre"
 }
 
 # Función para generar backup
