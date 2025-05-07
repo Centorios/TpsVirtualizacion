@@ -191,17 +191,36 @@ CONTADOR=0
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -d|--directorio)
-            DIRECTORIO="$2"
-            shift 2
-            ;;
+            if [[ -d "$2" ]]; then
+                DIRECTORIO="$2"
+                shift 2
+                
+            else
+                echo "El directorio especificado en -d/--directorio NO es valido"
+                exit 1
+            fi            
+		;;
         -s|--salida|--backup)
-            DESTINO="$2"
-            shift 2
-            ;;
+            if [[ -d "$2" ]]; then
+                DESTINO="$2"
+                shift 2
+                
+            else
+                echo "El directorio especificado en -s/--salida NO es valido"
+                exit 1
+            fi            
+		;;
         -c|--cantidad)
-            CANTIDAD="$2"
-            shift 2
+            if [[ "$2" =~ ^-?[0-9]+$ ]]; then
+                CANTIDAD="$2"
+                shift 2
+                
+            else
+                echo "El valor especificado en -c /--cantidad NO es un numero"
+                exit 1
+            fi
             ;;
+
         -k|--kill)
             KILL_MODE=1
             shift
@@ -224,6 +243,7 @@ fi
 if (($KILL_MODE)); then
     if [[ -z "$DIRECTORIO" ]]; then
         echo "Necesita especificar el directorio asignado al script para matar"
+        exit 1
     fi
     detener_demonio
 fi

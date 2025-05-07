@@ -9,7 +9,7 @@
 param(
     [string]$directorio,
     [string]$salida,
-    [int]$cantidad,
+    [string]$cantidad,
     [switch]$kill,
     [switch]$daemon,
     [switch]$help
@@ -78,7 +78,8 @@ function Procesar-Archivo($archivo) {
 
     $script:contador++
     if ($bandera -eq 1 -and $script:contador -ge $cantidad) {
-        Generar-Backup
+        Start-Sleep -Seconds 2
+	Generar-Backup
         $script:contador = 0
     }
 }
@@ -131,18 +132,18 @@ function Demonio {
 
     Register-ObjectEvent $watcher Created -SourceIdentifier FileCreated -Action {
         $nombreArchivo = $Event.SourceEventArgs.Name
-        Start-Sleep -Milliseconds 500
+        Start-Sleep -Milliseconds 1000
         Procesar-Archivo $nombreArchivo
     }
 
     Register-ObjectEvent $watcher Changed -SourceIdentifier FileChanged -Action {
         $nombreArchivo = $Event.SourceEventArgs.Name
-        Start-Sleep -Milliseconds 500
+        Start-Sleep -Milliseconds 1000
         Procesar-Archivo $nombreArchivo
     }
 
     while ($true) {
-        Start-Sleep -Seconds 3
+        Start-Sleep -Seconds 4
     }
 }
 
@@ -171,7 +172,19 @@ if (-not $directorio -or -not $cantidad -or -not $salida) {
 
 if (-not [int]::TryParse($cantidad, [ref]$null)) {
     Write-Output "El valor especificado en -cantidad NO es un numero"
-    
+    exit 1
+}
+
+$cantidad = [int] $cantidad
+
+if(-not (Test-Path $directorio -PathType Container)){
+    Write-Output "El directorio especificado en -directorio NO es valido"
+    exit 1
+}
+
+if(-not (Test-Path $salida -PathType Container)){
+    Write-Output "El directorio especificado en -salida NO es valido"
+    exit 1
 }
 
 # Verificar si ya hay demonio corriendo
