@@ -31,14 +31,16 @@ Muestra esta ayuda.
 Muestra la ayuda del script con una descripción de los parámetros requeridos.
 #>
 
-
+[CmdletBinding(DefaultParameterSetName='Parametros')]
 param(
-    [Parameter(Mandatory=$true, HelpMessage="Ruta del directorio a analizar")]
+    [Parameter(Mandatory=$true, HelpMessage="Ruta del directorio a analizar", ParameterSetName='Parametros')]
     [string]$directorio,
-    [Parameter(Mandatory=$true, HelpMessage="Lista de palabras a contabilizar")]
+    [Parameter(Mandatory=$true, HelpMessage="Lista de palabras a contabilizar", ParameterSetName='Parametros')]
     [string[]]$palabras,
-    [Parameter(Mandatory=$true, HelpMessage="Lista de extensiones de archivos a buscar.")]
-    [string[]]$archivos
+    [Parameter(Mandatory=$true, HelpMessage="Lista de extensiones de archivos a buscar.", ParameterSetName='Parametros')]
+    [string[]]$archivos,
+    [Parameter(Mandatory=$false, ParameterSetName='Ayuda', HelpMessage="Mas info de ayuda")]
+    [switch]$Help
 )
 
 function Get-Ayuda {
@@ -51,6 +53,12 @@ function Get-Ayuda {
 }
 
 function validacionDeParametros{
+
+    if ($Help) {
+        Get-Ayuda
+        exit 1
+    }
+
     if (-not $directorio){
         Write-Host "Error: Debe especificar un directorio."
         exit 1
@@ -80,15 +88,15 @@ function validacionDeParametros{
 validacionDeParametros
 
 
-#matufia para asegurar que el parametro archivos llego como array porque anda raro
+# Validación para asegurar que el parametro archivos llego como array 
 if ($archivos.Count -eq 1 -and $archivos[0] -like "*,*") {
     $archivos = $archivos[0] -split "," | ForEach-Object { $_.Trim() }
 }
 
-#matufia para concatenar el punto y el * que indica todo lo que esta atras
+#Validación para concatenar el punto y el * que indica todo lo que esta atras
 $ExtensionTypes = $archivos | ForEach-Object { "*." + $_}
 
-#matufia para asegurar que el parametro palabras llego como array porque anda raro
+#Validación para asegurar que el parametro palabras llego como array porque anda raro
 if ($palabras.Count -eq 1 -and $palabras[0] -like "*,*") {
     $palabras = $palabras[0] -split "," | ForEach-Object { $_.Trim() }
 }

@@ -1,3 +1,4 @@
+#!/bin/pwsh
 # Integrantes del grupo:
 # - Berti Rodrigo
 # - Burnowicz Alejo
@@ -40,16 +41,17 @@
 .NOTES
 #>
 
-
-
 [CmdletBinding(DefaultParameterSetName='Parametros')]
 Param (
-    [Parameter(Mandatory=$true)]
+    [Parameter(Mandatory=$true, HelpMessage="Ruta de la matriz de entrada", ParameterSetName='Parametros')]
     [string]$Matriz,
-    [switch]$Producto,
+    [Parameter(Mandatory=$false, HelpMessage="Valor para el producto escalar", ParameterSetName='Parametros')]
+    [int]$Producto,
+    [Parameter (Mandatory=$false, HelpMessage="Realiza la transposición de la matriz", ParameterSetName='Parametros')]
     [switch]$Trasponer,
-    [Parameter(Mandatory=$true)]
+    [Parameter(Mandatory=$true, HelpMessage="Separador de columnas", ParameterSetName='Parametros')]
     [string]$Separador,
+    [Parameter(Mandatory=$false, ParameterSetName='Ayuda', HelpMessage="Mas info de ayuda")]
     [switch]$Help
 )
 
@@ -64,15 +66,20 @@ function Get-Ayuda {
     Write-Host "  -Help                      Muestra esta ayuda."
 }
 
+
+if ($Help) {
+    Get-Ayuda
+    exit 1
+}
+
+
 function validacionesDeParametros{
-    if (-not $Producto -and -not $Trasponer) {
+    if (-not $Producto -and (-not $Trasponer)) {
         Write-Host "Error: Debe especificar al menos un argumento de salida."
-        Get-Ayuda
         exit
     }
     if ($Producto -and $Trasponer) {
         Write-Host "Error: No puede especificar tanto -Producto como -Trasponer."
-        Get-Ayuda
         exit
     }
 
@@ -170,12 +177,6 @@ function validarMatriz (){
     }
     return $matrizC
 }
-
-if ($Help) {
-    Get-Ayuda
-    exit
-}
-
 # Validamos los parametros
 validacionesDeParametros
 
@@ -188,9 +189,8 @@ validarArchivoMatriz
 $matrizC = @()
 $matrizC = validarMatriz -matriz $matrizC
 
-
 #Procesamos la matriz
-if ($Producto){
+if ($Producto -and -not $Trasponer) {
     for($i = 0; $i -lt $matrizC.Count; $i++) {
         for($j = 0; $j -lt $matrizC[$i].Count; $j++) {
             $matrizC[$i][$j] *= $Producto
@@ -213,7 +213,7 @@ if ($Producto){
     }
 }
 
-if($Trasponer){
+if($Trasponer -and -not $Producto){
     $matrizT = @()
     for($i = 0; $i -lt $matrizC[0].Count; $i++) {
         $filaT = @()
