@@ -82,18 +82,16 @@ if(pid_h2 == 0) {
         //si soy el demonio
         if(pid_demon == 0) {
                 printf("soy el demonio, %d y mi padre es %d\n", getpid(), getppid());
-                sleep(5);
-                setsid();
-                printf("soy el demonio, %d y mi padre ahora es %d\n",getpid(), getppid());
                 while(1)
                 {
-                        sleep(1);
+			sleep(1);
                 }
 
         }
 
         printf("soy el hijo 2, %d y mi padre es %d\n", getpid(),getppid());
-        return 0;
+        getchar();
+	return 0;
 
 }
 
