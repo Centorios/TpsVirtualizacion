@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <arpa/inet.h>
 #define FALSE 0
 #define TRUE 1
 
@@ -15,15 +16,15 @@ if(argc > 7) {
 }
 
 
-int serverPort;
-int maxUsers;
-char* filePath;
+int serverPort = -1;
+int maxUsers = -1;
+char* filePath = NULL;
 
 int i = 0;
 bool port = FALSE;
 bool users = FALSE;
-bool file = FALSE;
-while(i <= argc)
+bool b_file = FALSE;
+while(i < argc)
 {
 	if(argv[i] != NULL) {
 	        if(strcmp(argv[i],"-help") == 0 || strcmp(argv[i],"-h") == 0){
@@ -47,7 +48,7 @@ while(i <= argc)
 		if(strcmp(argv[i],"-archivo") == 0 || strcmp(argv[i],"-a") == 0) {
 			filePath = argv[i+1];
 			i++;
-			file = TRUE;
+			b_file = TRUE;
 		}
 	}
 
@@ -61,7 +62,7 @@ if(users == FALSE){
 	printf("parametro usuarios invalido o faltante\n");
 	return 1;
 }
-if(file == FALSE){
+if(b_file == FALSE){
 	printf("parametro archivo invalido o faltante\n");
 	return 1;
 }
@@ -72,10 +73,14 @@ if(port == FALSE){
 
 ////////////////////////////////////////////////////////////////////////////
 
+FILE *file = fopen(filePath,"r");
 
+if (!file){
+	perror("Error abriendo archivo");
+	return 1;
+}
 
-
-
+////////////////////////////////////////////////////////////////////////////
 
 
 
