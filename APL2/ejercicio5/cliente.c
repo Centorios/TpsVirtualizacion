@@ -96,6 +96,7 @@ if(sockfd < 0){
 
 server_addr.sin_family = AF_INET;
 server_addr.sin_port = htons(portNumber);
+server_addr.sin_addr.s_addr = INADDR_ANY;
 if(inet_pton(AF_INET,serverIp,&server_addr.sin_addr) <= 0){
 	perror("dirección de server invalida");
 	close(sockfd);
