@@ -5,7 +5,7 @@
 #include <sys/socket.h>
 #include "cliente_handler.h"
 
-#define BUFFER_SIZE 1024
+#define BUFFER_SIZE 2048
 
 void* handle_client(void* arg) {
     int client_fd = *(int*)arg;
