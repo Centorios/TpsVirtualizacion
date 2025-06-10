@@ -4,6 +4,11 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <arpa/inet.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <pthread.h>
+#include "cliente_handler.h"
 #define FALSE 0
 #define TRUE 1
 
@@ -28,7 +33,9 @@ while(i < argc)
 {
 	if(argv[i] != NULL) {
 	        if(strcmp(argv[i],"-help") == 0 || strcmp(argv[i],"-h") == 0){
-			//aca va la logica del help
+			printf("-puerto o -p seguido del numero de puerto\n");
+			printf("-usuarios o -u seguido del numero maximo de usuarios que maneja el server\n");
+			printf("-archivo o -a seguido del path donde se encuentra el archivo con las palabras\n");
 			return 0;
 	        }
 
@@ -81,7 +88,75 @@ if (!file){
 }
 
 ////////////////////////////////////////////////////////////////////////////
+int server_fd;
+struct sockaddr_in server_addr, client_addr;
+socklen_t addr_len = sizeof(client_addr);
+
+server_fd = socket(AF_INET,SOCK_STREAM,0);
+
+if (server_fd == -1 ) {
+	perror("error creando el socket");
+	exit(EXIT_FAILURE);
+}
+
+server_addr.sin_family = AF_INET;
+server_addr.sin_addr.s_addr = INADDR_ANY;
+server_addr.sin_port = htons(serverPort);
+
+if (bind(server_fd,(struct sockaddr*)&server_addr, sizeof(server_addr)) <0){
+	perror("fallo al bindear el socket");
+	close(server_fd);
+	exit(EXIT_FAILURE);
+}
+
+if (listen(server_fd, maxUsers) < 0) {
+perror("Listen failed");
+close(server_fd);
+exit(EXIT_FAILURE);
+}
+
+printf("servidor a la escucha en el puerto: %d\n",serverPort);
+
+
+if (listen(server_fd, maxUsers) < 0) {
+	perror("Listen failed");
+	close(server_fd);
+	exit(EXIT_FAILURE);
+}
+
+while (1){
+	int* client_fd = malloc(sizeof(int));
+
+	if (!client_fd) {
+		perror("fallo el malloc para alojar el cliente");
+		continue;
+	}
+
+	*client_fd = accept(server_fd, (struct sockaddr *)&client_addr,&addr_len);
+
+	if (*client_fd < 0){
+		perror("fallo aceptar el cliente");
+		free(client_fd);
+		continue;
+	}
+
+	printf("Conexion aceptada de %s:%d\n",inet_ntoa(client_addr.sin_addr),ntohs(client_addr.sin_port));
+
+	pthread_t tid;
+
+	if(pthread_create(&tid,NULL,handle_client,client_fd) != 0){
+		perror("fallo la creacion del thread");
+		close(*client_fd);
+		free(client_fd);
+	} else {
+		pthread_detach(tid);
+	}
 
 
 
+}
+
+
+close(server_fd);
+return 0;
 }

@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <arpa/inet.h>
+#define BUFFER_SIZE 1024
 #define FALSE 0
 #define TRUE 1
 
@@ -77,6 +78,38 @@ if(port == FALSE){
 }
 
 ////////////////////////////////////////////////////////////////////////////
+
+int sockfd;
+struct sockaddr_in server_addr;
+char buffer[BUFFER_SIZE];
+
+sockfd = socket(AF_INET,SOCK_STREAM,0);
+
+if(sockfd < 0){
+	perror("fallo la creacion del socket");
+	exit(EXIT_FAILURE);
+}
+
+server_addr.sin_family = AF_INET;
+server_addr.sin_port = htons(portNumber);
+if(inet_pton(AF_INET,serverIp,&server_addr.sin_addr) <= 0){
+	perror("dirección de server invalida");
+	close(sockfd);
+	exit(EXIT_FAILURE);
+}
+
+if(connect(sockfd, (struct sockaddr*)&server_addr,sizeof(server_addr)) < 0){
+	perror("fallo al establecer la conexion");
+	close(sockfd);
+	exit(EXIT_FAILURE);
+}
+
+
+
+
+
+
+
 
 
 }
