@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <arpa/inet.h>
+#define BUFFER_SIZE 2048
 #define FALSE 0
 #define TRUE 1
 
@@ -13,7 +14,7 @@ int main(int argc, char *argv[]){
 if(argc > 7) {
         printf("parametros invalidos\n");
         return 1;
-}
+ }
 
 char* serverIp;
 char* nickName;
@@ -28,7 +29,9 @@ while(i <= argc)
 {
 	if(argv[i] != NULL) {
 	        if(strcmp(argv[i],"-help") == 0 || strcmp(argv[i],"-h") == 0){
-			//aca va la logica del help
+			printf("-puerto o -p para indicar el peurto del servidor de destino\n");
+			printf("-servidor o -s para indicar la ipv4 del servidor de destino\n");
+			printf("-nickname o -n para indicar el nickname del cliente\n");
 			return 0;
 	        }
 
@@ -77,6 +80,77 @@ if(port == FALSE){
 }
 
 ////////////////////////////////////////////////////////////////////////////
+
+int sockfd;
+struct sockaddr_in server_addr;
+char msg_buffer[BUFFER_SIZE-1024];
+char send_buffer[BUFFER_SIZE];
+char recv_buffer[BUFFER_SIZE];
+
+sockfd = socket(AF_INET,SOCK_STREAM,0);
+
+if(sockfd < 0){
+	perror("fallo la creacion del socket");
+	exit(EXIT_FAILURE);
+}
+
+server_addr.sin_family = AF_INET;
+server_addr.sin_port = htons(portNumber);
+server_addr.sin_addr.s_addr = INADDR_ANY;
+if(inet_pton(AF_INET,serverIp,&server_addr.sin_addr) <= 0){
+	perror("dirección de server invalida");
+	close(sockfd);
+	exit(EXIT_FAILURE);
+}
+
+if(connect(sockfd, (struct sockaddr*)&server_addr,sizeof(server_addr)) < 0){
+	perror("fallo al establecer la conexion");
+	close(sockfd);
+	exit(EXIT_FAILURE);
+}
+
+printf("Conectado al servidor en %s:%d\n",serverIp, portNumber);
+
+while(1){
+	printf("> ");
+	fflush(stdout);
+	if (fgets(msg_buffer,BUFFER_SIZE-1024,stdin) == NULL) {
+		//aca va la logica de error en el buffer
+		break;
+	}
+
+	//remover newline del mensaje
+	msg_buffer[strcspn(msg_buffer, "\n")] = '\0';
+
+	if(strcmp(send_buffer,"exit") == 0 || strcmp(send_buffer,"EXIT") == 0){
+		printf("desconectando");
+		//aca va la logica de desconexion de cliente controlada
+		break;
+	}
+
+	snprintf(send_buffer,BUFFER_SIZE,"[%s]: %s", nickName,msg_buffer);
+
+	if (send(sockfd,send_buffer,strlen(send_buffer),0) < 0 ){
+		//aca va la logiva de recupero de mensaje o notificacion de error
+		perror("fallo el envio del mensaje al server");
+		break;
+	}
+
+	memset(recv_buffer,0,BUFFER_SIZE);
+	ssize_t n = recv(sockfd,recv_buffer,BUFFER_SIZE -1,0);
+
+	if(n <= 0){
+		printf("server desconextado o ocurrio un error\n");
+		break;
+	}
+
+
+	printf("[server]: %s\n",recv_buffer);
+}
+
+
+close(sockfd);
+return 0;
 
 
 }
