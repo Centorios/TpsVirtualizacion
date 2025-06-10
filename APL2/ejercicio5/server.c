@@ -110,19 +110,14 @@ if (bind(server_fd,(struct sockaddr*)&server_addr, sizeof(server_addr)) <0){
 }
 
 if (listen(server_fd, maxUsers) < 0) {
-perror("Listen failed");
-close(server_fd);
-exit(EXIT_FAILURE);
+	perror("Listen failed");
+	close(server_fd);
+	exit(EXIT_FAILURE);
 }
 
 printf("servidor a la escucha en el puerto: %d\n",serverPort);
 
 
-if (listen(server_fd, maxUsers) < 0) {
-	perror("Listen failed");
-	close(server_fd);
-	exit(EXIT_FAILURE);
-}
 
 while (1){
 	int* client_fd = malloc(sizeof(int));

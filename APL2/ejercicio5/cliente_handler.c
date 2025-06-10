@@ -14,13 +14,17 @@ void* handle_client(void* arg) {
 
     printf("Handling client in thread (fd: %d)\n", client_fd);
 
-    memset(buffer, 0, BUFFER_SIZE);
-    recv(client_fd, buffer, BUFFER_SIZE, 0);
-    printf("Client says: %s\n", buffer);
-
-    const char* response = "Hello from server thread!";
-    send(client_fd, response, strlen(response), 0);
-
+	while(1){
+		memset(buffer, 0, BUFFER_SIZE);
+		ssize_t n =recv(client_fd,buffer,BUFFER_SIZE-1,0);
+    		if(n<=0){
+			break;
+		}
+		printf("%s\n",buffer);
+    		char response[BUFFER_SIZE];
+		snprintf(response,BUFFER_SIZE, "ack");
+    		send(client_fd, response, strlen(response), 0);
+	}
     close(client_fd);
     printf("Client connection closed (fd: %d)\n", client_fd);
     return NULL;
