@@ -4,7 +4,9 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include "cliente_handler.h"
+#include "partida.h"
 #define BUFFER_SIZE 2048
+#define MAX_LINEA 30
 
 typedef struct {
 	char nickName[BUFFER_SIZE];
@@ -23,6 +25,7 @@ void* handle_client(void* arg) {
     memset(params.nickName,0,BUFFER_SIZE);
     char recv_buffer[BUFFER_SIZE];
     char resp_buffer[BUFFER_SIZE];
+    char palabraAEvaluar[MAX_LINEA];
     memset(recv_buffer,0,BUFFER_SIZE);
     memset(resp_buffer,0,BUFFER_SIZE);
     ssize_t n = 0;
@@ -45,24 +48,30 @@ void* handle_client(void* arg) {
     	return NULL;
     }
 
-
-
     strcpy(params.nickName,recv_buffer);
-    printf("llego el nickname %s\n",params.nickName);
-
     memset(recv_buffer,0,BUFFER_SIZE);
 
-
 	while(1){
+		int indice = rand() % *(params.cantFrases);
+		strcpy(palabraAEvaluar,params.frases[indice]);
+		int resPartida = partida(palabraAEvaluar,recv_buffer,resp_buffer,client_fd);
+
+		if(!resPartida){
+			
+		}
+/*
 		n =recv(client_fd,recv_buffer,BUFFER_SIZE,0);
     		if(n<=0){
 			break;
 		}
-		printf("%s\n",recv_buffer);
 		snprintf(resp_buffer,BUFFER_SIZE, "ack");
     		send(client_fd, resp_buffer, strlen(resp_buffer), 0);
 		memset(recv_buffer,0,BUFFER_SIZE);
+*/
 	}
+
+
+
     close(client_fd);
     printf("Client connection closed (fd: %d)\n", client_fd);
     return NULL;

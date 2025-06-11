@@ -122,15 +122,23 @@ if(strcmp(recv_buffer,"INICIO_PARTIDA") != 0){
 
 snprintf(send_buffer,BUFFER_SIZE,"ACK");
 send(sockfd,send_buffer,strlen(send_buffer),0);
-
 memset(send_buffer,0,BUFFER_SIZE);
 
 snprintf(send_buffer,BUFFER_SIZE,"%s", nickName);
 send(sockfd,send_buffer,strlen(send_buffer),0);
-
 memset(send_buffer,0,BUFFER_SIZE);
 
+memset(recv_buffer,0,BUFFER_SIZE);
+n = recv(sockfd,recv_buffer,BUFFER_SIZE,0);
 
+if(n<=0){
+	perror("fallo la primera entrada de la palabra con ___");
+	exit(1);	
+}
+
+printf("[server]: %s\n",recv_buffer);
+
+memset(recv_buffer,0,BUFFER_SIZE);
 
 while(1){
 	printf("> ");

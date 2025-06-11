@@ -9,8 +9,11 @@
 #include <sys/socket.h>
 #include <pthread.h>
 #include "cliente_handler.h"
+#include "partida.h"
 #define FALSE 0
 #define TRUE 1
+#define MAX_FRASES 3
+#define MAX_LINEA 30
 
 typedef struct {
 	char nickName[2048];
@@ -88,23 +91,35 @@ if(port == FALSE){
 }
 
 ////////////////////////////////////////////////////////////////////////////
-
-FILE *file = fopen(filePath,"r");
-
+FILE *file = fopen(filePath, "r");
 if (!file){
 	perror("Error abriendo archivo");
 	return 1;
 }
+char *frases[MAX_FRASES];
+char bufferArchivo[MAX_LINEA];
+int cantidadFrases = 0;
 
+while (fgets(bufferArchivo, MAX_LINEA, file) && cantidadFrases < MAX_FRASES){
+	// Eliminar el salto de línea final si existe
+	bufferArchivo[strcspn(bufferArchivo, "\n")] = '\0';
+	// Reservar memoria y copiar la línea
+	frases[cantidadFrases] = strdup(bufferArchivo);
+	if (!frases[cantidadFrases]){
+		perror("Fallo al reservar memoria");
+		fclose(file);
+		return 1;
+	}
+	cantidadFrases++;
+}
+
+fclose(file);
 ////////////////////////////////////////////////////////////////////////////
 int server_fd;
 struct sockaddr_in server_addr, client_addr;
 socklen_t addr_len = sizeof(client_addr);
 
 server_fd = socket(AF_INET,SOCK_STREAM,0);
-
-
-
 
 if (server_fd == -1 ) {
 	perror("error creando el socket");
@@ -154,6 +169,8 @@ while (1){
 	ParametrosThreadGame params;
 
         params.cliente_id = client_fd;
+	params.cantFrases = &cantidadFrases;
+	params.frases = frases;
 
 	if(pthread_create(&tid,NULL,handle_client,&params) != 0){
 		perror("fallo la creacion del thread");
