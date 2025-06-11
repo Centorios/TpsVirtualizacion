@@ -120,27 +120,35 @@ if(strcmp(recv_buffer,"INICIO_PARTIDA") != 0){
 	perror("no llego el inicio partida");
 }
 
-snprintf(send_buffer,BUFFER_SIZE,"ACK");
-send(sockfd,send_buffer,strlen(send_buffer),0);
-memset(send_buffer,0,BUFFER_SIZE);
 
 snprintf(send_buffer,BUFFER_SIZE,"%s", nickName);
 send(sockfd,send_buffer,strlen(send_buffer),0);
 memset(send_buffer,0,BUFFER_SIZE);
 
-memset(recv_buffer,0,BUFFER_SIZE);
-n = recv(sockfd,recv_buffer,BUFFER_SIZE,0);
-
-if(n<=0){
-	perror("fallo la primera entrada de la palabra con ___");
-	exit(1);	
-}
-
-printf("[server]: %s\n",recv_buffer);
-
-memset(recv_buffer,0,BUFFER_SIZE);
 
 while(1){
+	memset(recv_buffer,0,BUFFER_SIZE);
+	n = recv(sockfd,recv_buffer,BUFFER_SIZE,0);
+	if(n<=0){
+		perror("fallo la entrada de la palabra con ___");
+		exit(1);	
+	}
+	
+	if(strcmp("PERDISTE",recv_buffer)==0){
+		printf("perdiste la partida");
+		break;
+	}
+
+	if(strcmp("GANASTE",recv_buffer)==0){
+		printf("ganaste la partida");
+		break;
+	}
+
+
+
+	printf("[server]: %s\n",recv_buffer);
+	memset(recv_buffer,0,BUFFER_SIZE);
+
 	printf("> ");
 	fflush(stdout);
 	if (fgets(send_buffer,BUFFER_SIZE,stdin) == NULL) {
@@ -163,16 +171,6 @@ while(1){
 		break;
 	}
 
-	memset(recv_buffer,0,BUFFER_SIZE);
-	n = recv(sockfd,recv_buffer,BUFFER_SIZE -1,0);
-
-	if(n <= 0){
-		printf("server desconextado o ocurrio un error\n");
-		break;
-	}
-
-
-	printf("[server]: %s\n",recv_buffer);
 }
 
 

@@ -10,14 +10,13 @@
 #define TRUE 1
 
 
-int partida(char *palabra,char* recv_buffer,char* send_buffer,int client_fd)
-{
-    int intentos = 0;
-    char palabraJuego[MAX_LEN];
-    char letra = 'a';
-    int acierto;
-    ssize_t n = 0;
-    devolverPalabraJuego(palabraJuego,palabra);
+int partida(char *palabra,char* recv_buffer,char* send_buffer,int client_fd){
+	int intentos = 0;
+	char palabraJuego[MAX_LEN];
+	char letra = 'a';
+	int acierto;
+	ssize_t n = 0;
+	devolverPalabraJuego(palabraJuego,palabra);
 
     while (intentos < 5)
     {
