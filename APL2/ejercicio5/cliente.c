@@ -39,7 +39,6 @@ while(i <= argc)
 			portNumber = atoi(argv[i+1]);
 			i++;
 			port = TRUE;
-			
 		}
 
 		if(strcmp(argv[i],"-servidor") == 0 || strcmp(argv[i],"-s") ==0){
@@ -83,7 +82,6 @@ if(port == FALSE){
 
 int sockfd;
 struct sockaddr_in server_addr;
-char msg_buffer[BUFFER_SIZE-1024];
 char send_buffer[BUFFER_SIZE];
 char recv_buffer[BUFFER_SIZE];
 
@@ -110,25 +108,46 @@ if(connect(sockfd, (struct sockaddr*)&server_addr,sizeof(server_addr)) < 0){
 }
 
 printf("Conectado al servidor en %s:%d\n",serverIp, portNumber);
+ssize_t n = 0;
+
+n = recv(sockfd,recv_buffer,BUFFER_SIZE,0);
+
+if(n<=0){
+	perror("fallo algo");
+}
+
+if(strcmp(recv_buffer,"INICIO_PARTIDA") != 0){
+	perror("no llego el inicio partida");
+}
+
+snprintf(send_buffer,BUFFER_SIZE,"ACK");
+send(sockfd,send_buffer,strlen(send_buffer),0);
+
+memset(send_buffer,0,BUFFER_SIZE);
+
+snprintf(send_buffer,BUFFER_SIZE,"%s", nickName);
+send(sockfd,send_buffer,strlen(send_buffer),0);
+
+memset(send_buffer,0,BUFFER_SIZE);
+
+
 
 while(1){
 	printf("> ");
 	fflush(stdout);
-	if (fgets(msg_buffer,BUFFER_SIZE-1024,stdin) == NULL) {
+	if (fgets(send_buffer,BUFFER_SIZE,stdin) == NULL) {
 		//aca va la logica de error en el buffer
 		break;
 	}
 
 	//remover newline del mensaje
-	msg_buffer[strcspn(msg_buffer, "\n")] = '\0';
+	send_buffer[strcspn(send_buffer, "\n")] = '\0';
 
 	if(strcmp(send_buffer,"exit") == 0 || strcmp(send_buffer,"EXIT") == 0){
-		printf("desconectando");
+		printf("desconectando...\n");
 		//aca va la logica de desconexion de cliente controlada
 		break;
 	}
-
-	snprintf(send_buffer,BUFFER_SIZE,"[%s]: %s", nickName,msg_buffer);
 
 	if (send(sockfd,send_buffer,strlen(send_buffer),0) < 0 ){
 		//aca va la logiva de recupero de mensaje o notificacion de error
@@ -137,7 +156,7 @@ while(1){
 	}
 
 	memset(recv_buffer,0,BUFFER_SIZE);
-	ssize_t n = recv(sockfd,recv_buffer,BUFFER_SIZE -1,0);
+	n = recv(sockfd,recv_buffer,BUFFER_SIZE -1,0);
 
 	if(n <= 0){
 		printf("server desconextado o ocurrio un error\n");

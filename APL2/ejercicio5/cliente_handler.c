@@ -4,26 +4,64 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include "cliente_handler.h"
-
 #define BUFFER_SIZE 2048
 
-void* handle_client(void* arg) {
-    int client_fd = *(int*)arg;
-    free(arg); // Release memory from malloc in main
-    char buffer[BUFFER_SIZE];
+typedef struct {
+	char nickName[BUFFER_SIZE];
+	int* puntuacion;
+	int* cantFrases;
+	char** frases;
+	int* cliente_id;
 
+} ParametrosThreadGame;
+
+
+void* handle_client(void* arg) {
+    ParametrosThreadGame params = *(ParametrosThreadGame*)arg;
+    int client_fd = *params.cliente_id;
+    free(params.cliente_id); // Release memory from malloc in main
+    memset(params.nickName,0,BUFFER_SIZE);
+    char recv_buffer[BUFFER_SIZE];
+    char resp_buffer[BUFFER_SIZE];
+    memset(recv_buffer,0,BUFFER_SIZE);
+    memset(resp_buffer,0,BUFFER_SIZE);
+    ssize_t n = 0;
     printf("Handling client in thread (fd: %d)\n", client_fd);
 
+    //aca va el mensaje de inicio de partida
+    snprintf(resp_buffer,BUFFER_SIZE,"INICIO_PARTIDA");
+    send(client_fd,resp_buffer,strlen(resp_buffer),0);
+
+    n = recv(client_fd,recv_buffer,BUFFER_SIZE,0);
+    if(n<=0){
+	return NULL;
+    }
+    printf("El cliente dijo %s al inicio de partida\n",recv_buffer);
+
+    memset(recv_buffer,0,BUFFER_SIZE);
+
+    n = recv(client_fd,recv_buffer,BUFFER_SIZE,0);
+    if(n<=0){
+    	return NULL;
+    }
+
+
+
+    strcpy(params.nickName,recv_buffer);
+    printf("llego el nickname %s\n",params.nickName);
+
+    memset(recv_buffer,0,BUFFER_SIZE);
+
+
 	while(1){
-		memset(buffer, 0, BUFFER_SIZE);
-		ssize_t n =recv(client_fd,buffer,BUFFER_SIZE-1,0);
+		n =recv(client_fd,recv_buffer,BUFFER_SIZE,0);
     		if(n<=0){
 			break;
 		}
-		printf("%s\n",buffer);
-    		char response[BUFFER_SIZE];
-		snprintf(response,BUFFER_SIZE, "ack");
-    		send(client_fd, response, strlen(response), 0);
+		printf("%s\n",recv_buffer);
+		snprintf(resp_buffer,BUFFER_SIZE, "ack");
+    		send(client_fd, resp_buffer, strlen(resp_buffer), 0);
+		memset(recv_buffer,0,BUFFER_SIZE);
 	}
     close(client_fd);
     printf("Client connection closed (fd: %d)\n", client_fd);

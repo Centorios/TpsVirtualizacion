@@ -12,6 +12,15 @@
 #define FALSE 0
 #define TRUE 1
 
+typedef struct {
+	char nickName[2048];
+	int* puntuacion;
+	int* cantFrases;
+	char** frases;
+	int* cliente_id;
+} ParametrosThreadGame;
+
+
 int main(int argc, char *argv[]){
 
 ////////////////////////////////////////////////////////////////////////////
@@ -94,6 +103,9 @@ socklen_t addr_len = sizeof(client_addr);
 
 server_fd = socket(AF_INET,SOCK_STREAM,0);
 
+
+
+
 if (server_fd == -1 ) {
 	perror("error creando el socket");
 	exit(EXIT_FAILURE);
@@ -139,7 +151,11 @@ while (1){
 
 	pthread_t tid;
 
-	if(pthread_create(&tid,NULL,handle_client,client_fd) != 0){
+	ParametrosThreadGame params;
+
+        params.cliente_id = client_fd;
+
+	if(pthread_create(&tid,NULL,handle_client,&params) != 0){
 		perror("fallo la creacion del thread");
 		close(*client_fd);
 		free(client_fd);
