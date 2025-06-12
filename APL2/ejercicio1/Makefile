@@ -15,12 +15,12 @@ all: $(TARGET)
 
 # Construir el programa
 $(TARGET): $(SOURCES)
-        $(CC) $(CFLAGS) -o $(TARGET) $(SOURCES)
+	$(CC) $(CFLAGS) -o $(TARGET) $(SOURCES)
 
 # Construir los objetos
 %.o: %.c
-        $(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CFLAGS) -c -o $@ $<
 
 # Objetivo para limpiar
 clean:
-        rm -f $(TARGET) $(SOURCES:.c=.o)
+	rm -f $(TARGET) $(SOURCES:.c=.o)

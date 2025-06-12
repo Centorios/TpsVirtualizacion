@@ -224,7 +224,6 @@ if (first) {
 } else {
 	printf("El puntaje mas alto fue de: %s con %d\n",maxWord, maxValue);
 }
-f
 
 fclose(fi);
 remove("/tmp/resultado");
