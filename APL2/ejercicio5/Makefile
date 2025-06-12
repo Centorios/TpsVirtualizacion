@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -O2 -g
+CFLAGS = -Wall -Wextra -O2
 LDFLAGS = -pthread
 
 CLIENT_SRC = cliente.c
