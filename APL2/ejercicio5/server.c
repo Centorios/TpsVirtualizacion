@@ -7,6 +7,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <sys/select.h>
 #include <pthread.h>
 #include <signal.h>
 #include "cliente_handler.h"
@@ -28,10 +29,16 @@ typedef struct {
 
 bool termProcess = TRUE;
 
+void sigusrHandler(){
+	termProcess = FALSE;
+}
+
+
 int main(int argc, char *argv[]){
-//signal(SIGINT,sigintHandler);
-//signal(SIGUSR1,sigusrHandler);
-////////////////////////////////////////////////////////////////////////////
+signal(SIGINT,sigusrHandler);
+signal(SIGUSR1,sigusrHandler);
+
+/////////////////////////////////////////////////////////////////////
 if(argc > 7) {
         printf("parametros invalidos\n");
         return 1;
@@ -150,6 +157,7 @@ printf("servidor a la escucha en el puerto: %d\n",serverPort);
 
 
 int contadorDeThreads = 0;
+TIMEOUT:
 while (termProcess){
 	while(contadorDeThreads<maxUsers){
 		int* client_fd = malloc(sizeof(int));
@@ -159,8 +167,24 @@ while (termProcess){
 			continue;
 		}
 
-		*client_fd = accept(server_fd, (struct sockaddr *)&client_addr,&addr_len);
+		fd_set readfds;
+		FD_ZERO(&readfds);
+		FD_SET(server_fd, &readfds);
 
+		struct timeval timeout = {5, 0}; // 5 segundos
+
+		int result = select(server_fd + 1, &readfds, NULL, NULL, &timeout);
+		if (result == 0) {
+		    //printf("Timeout: no se detectó una conexión entrante.\n");
+		    	free(client_fd);
+			goto TIMEOUT;
+
+		} else if (result < 0) {
+		    perror("select");
+		} else {
+		*client_fd = accept(server_fd, (struct sockaddr*)&client_addr, &addr_len);
+		}
+		
 		if (*client_fd < 0){
 			perror("fallo aceptar el cliente");
 			free(client_fd);
