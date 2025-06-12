@@ -120,10 +120,11 @@ if(strcmp(recv_buffer,"INICIO_PARTIDA") != 0){
 	perror("no llego el inicio partida");
 }
 
-
+memset(send_buffer,0,BUFFER_SIZE);
 snprintf(send_buffer,BUFFER_SIZE,"%s", nickName);
 send(sockfd,send_buffer,strlen(send_buffer),0);
 memset(send_buffer,0,BUFFER_SIZE);
+
 bool continuar = TRUE;
 while(continuar){
 
@@ -145,17 +146,18 @@ while(continuar){
 			break;
 		}
 
-
-
 		printf("[server]: %s\n",recv_buffer);
 		memset(recv_buffer,0,BUFFER_SIZE);
 
+
 		printf("> ");
 		fflush(stdout);
-		if (fgets(send_buffer,BUFFER_SIZE,stdin) == NULL) {
-			//aca va la logica de error en el buffer
-			break;
-		}
+		fflush(stdin);
+		char entrada[5];
+		scanf("%s",entrada);
+		strcpy(send_buffer,entrada);
+		fflush(stdin);
+		fflush(stdout);
 
 		//remover newline del mensaje
 		send_buffer[strcspn(send_buffer, "\n")] = '\0';
@@ -171,16 +173,17 @@ while(continuar){
 			perror("fallo el envio del mensaje al server");
 			break;
 		}
-
+	memset(send_buffer,0,BUFFER_SIZE);
 	}
+
 	memset(recv_buffer,0,BUFFER_SIZE);
 	printf("Terminó su juego, seguir jugando? [Y/N]: ");
-	char letra[2];
+	char letra[5];
 	TAG:
+	fflush(stdout);
 	fflush(stdin);
-	if(fgets(letra, 2, stdin) != NULL){
-		switch(letra[0]){
-
+	scanf("%s",letra);
+	switch(letra[0]){
 		case 'Y':
 		case 'y':
 			memset(send_buffer,0,BUFFER_SIZE);
@@ -199,9 +202,8 @@ while(continuar){
 		default:
 			printf("letra invalida, por favor ingrese nuevamente\n >");
 		goto TAG;
-		}
 	}
-
+	printf("sali del switch\n");
 }
 
 close(sockfd);

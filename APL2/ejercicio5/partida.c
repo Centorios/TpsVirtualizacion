@@ -17,17 +17,17 @@ int partida(char *palabra,char* recv_buffer,char* send_buffer,int client_fd){
 	int acierto;
 	ssize_t n = 0;
 	devolverPalabraJuego(palabraJuego,palabra);
-
     while (intentos < 5)
     {
+	memset(send_buffer,0,BUFFER_SIZE);
 	strcpy(send_buffer,palabraJuego);
 	if( send(client_fd,send_buffer,strlen(send_buffer),0) < 0){
 		perror("fallo la copia de la palabra o el envio");
 		break;
 	}
-
 	memset(send_buffer,0,BUFFER_SIZE);
 
+	memset(recv_buffer,0,BUFFER_SIZE);
 	n = recv(client_fd,recv_buffer,BUFFER_SIZE,0);
 
 	if(n<=0){

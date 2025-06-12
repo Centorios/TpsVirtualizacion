@@ -28,15 +28,16 @@ void* handle_client(void* arg) {
     char recv_buffer[BUFFER_SIZE];
     char resp_buffer[BUFFER_SIZE];
     char palabraAEvaluar[MAX_LINEA];
-    memset(recv_buffer,0,BUFFER_SIZE);
-    memset(resp_buffer,0,BUFFER_SIZE);
     ssize_t n = 0;
     printf("Handling client in thread (fd: %d)\n", client_fd);
 
     //aca va el mensaje de inicio de partida
+    memset(resp_buffer,0,BUFFER_SIZE);
     snprintf(resp_buffer,BUFFER_SIZE,"INICIO_PARTIDA");
     send(client_fd,resp_buffer,strlen(resp_buffer),0);
+    memset(resp_buffer,0,BUFFER_SIZE);
 
+    memset(recv_buffer,0,BUFFER_SIZE);
     n = recv(client_fd,recv_buffer,BUFFER_SIZE,0);
     if(n<=0){
     	return NULL;
@@ -66,13 +67,12 @@ void* handle_client(void* arg) {
 			break;
 		}
 		if(strcmp(recv_buffer,"SEGUIR") == 0){
-
+			memset(recv_buffer,0,BUFFER_SIZE);
+			memset(resp_buffer,0,BUFFER_SIZE);
 		}
 		if(strcmp(recv_buffer,"FINALIZAR") == 0){
 			break;
 		}
-		memset(recv_buffer,0,BUFFER_SIZE);
-		memset(resp_buffer,0,BUFFER_SIZE);
 	}
 
     close(client_fd);
