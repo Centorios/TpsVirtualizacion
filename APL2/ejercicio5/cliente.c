@@ -16,8 +16,8 @@ if(argc > 7) {
         return 1;
  }
 
-char* serverIp;
-char* nickName;
+char serverIp[40];
+char nickName[40];
 int portNumber;
 struct sockaddr_in socketAddr;
 
@@ -42,7 +42,7 @@ while(i <= argc)
 		}
 
 		if(strcmp(argv[i],"-servidor") == 0 || strcmp(argv[i],"-s") ==0){
-			serverIp = argv[i+1];
+			strcpy(serverIp,argv[i+1]);
 			int res = inet_pton(AF_INET, serverIp,&(socketAddr.sin_addr));
 			if( res <= 0 ){
 				printf("direccion ipv4 invalida: %s\n",serverIp);
@@ -53,7 +53,7 @@ while(i <= argc)
 		}
 
 		if(strcmp(argv[i],"-nickname") == 0 || strcmp(argv[i],"-n") == 0) {
-			nickName = argv[i+1];
+			strcpy(nickName,argv[i+1]);
 			i++;
 			b_nickname = TRUE;
 		}
@@ -161,7 +161,10 @@ while(continuar){
 		fflush(stdout);
 		fflush(stdin);
 		char entrada[5];
-		scanf("%s",entrada);
+		if(scanf("%s",entrada)<1){
+			perror("fallo la entrada de la letra");
+			return 1;
+		}
 		strcpy(send_buffer,entrada);
 		fflush(stdin);
 		fflush(stdout);
@@ -189,7 +192,10 @@ while(continuar){
 	TAG:
 	fflush(stdout);
 	fflush(stdin);
-	scanf("%s",letra);
+	if(scanf("%s",letra)<1){
+		perror("fallo el escaneo de la letra");
+		return 1;
+	}
 	switch(letra[0]){
 		case 'Y':
 		case 'y':
