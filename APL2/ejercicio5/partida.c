@@ -32,6 +32,7 @@ int partida(char *palabra,char* recv_buffer,char* send_buffer,int client_fd){
 
 	if(n<=0){
 		perror("fallo la recepcion de la letra");
+		return -1;
 	}
 
 	letra = recv_buffer[0];

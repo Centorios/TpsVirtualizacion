@@ -131,9 +131,16 @@ while(continuar){
 	while(1){
 		memset(recv_buffer,0,BUFFER_SIZE);
 		n = recv(sockfd,recv_buffer,BUFFER_SIZE,0);
-		if(n<=0){
-			perror("fallo la entrada de la palabra con ___");
-			exit(1);
+		if(n<0){
+			perror("fallo la entrada de la palabra");
+			close(sockfd);
+			return 1;
+		}
+
+		if(n==0){
+			printf("el servidor se desconectó\n");
+			close(sockfd);
+			return 1;
 		}
 
 		if(strcmp("PERDISTE",recv_buffer)==0){
@@ -169,9 +176,9 @@ while(continuar){
 		}
 
 		if (send(sockfd,send_buffer,strlen(send_buffer),0) < 0 ){
-			//aca va la logiva de recupero de mensaje o notificacion de error
 			perror("fallo el envio del mensaje al server");
-			break;
+			close(sockfd);
+			return 1;
 		}
 	memset(send_buffer,0,BUFFER_SIZE);
 	}

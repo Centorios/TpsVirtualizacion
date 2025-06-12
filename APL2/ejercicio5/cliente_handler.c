@@ -16,7 +16,7 @@ typedef struct {
 	int* cantFrases;
 	char** frases;
 	int* cliente_id;
-
+	int* contadorDeThreads;
 } ParametrosThreadGame;
 
 
@@ -56,11 +56,15 @@ void* handle_client(void* arg) {
 			snprintf(resp_buffer,BUFFER_SIZE,"PERDISTE");
     			send(client_fd,resp_buffer,strlen(resp_buffer),0);
 			(*params.puntuacion)=0;
-		} else {
+		}
+		if(resPartida == TRUE){
 			printf("%s ganó el juego\n",params.nickName);
                         snprintf(resp_buffer,BUFFER_SIZE,"GANASTE");
                         send(client_fd,resp_buffer,strlen(resp_buffer),0);
 			(*params.puntuacion)+=1;
+		}
+		if(resPartida <= -1){
+			break;
 		}
 
 		memset(recv_buffer,0,BUFFER_SIZE);
@@ -82,7 +86,9 @@ void* handle_client(void* arg) {
     free(params.puntuacion);
     fclose(file);
 
+
     close(client_fd);
+    (*params.contadorDeThreads)-=1;
     printf("Client connection closed (fd: %d)\n", client_fd);
     return NULL;
 }
