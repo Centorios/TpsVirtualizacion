@@ -39,7 +39,6 @@ while(i <= argc)
 			portNumber = atoi(argv[i+1]);
 			i++;
 			port = TRUE;
-			
 		}
 
 		if(strcmp(argv[i],"-servidor") == 0 || strcmp(argv[i],"-s") ==0){
@@ -83,7 +82,6 @@ if(port == FALSE){
 
 int sockfd;
 struct sockaddr_in server_addr;
-char msg_buffer[BUFFER_SIZE-1024];
 char send_buffer[BUFFER_SIZE];
 char recv_buffer[BUFFER_SIZE];
 
@@ -110,44 +108,109 @@ if(connect(sockfd, (struct sockaddr*)&server_addr,sizeof(server_addr)) < 0){
 }
 
 printf("Conectado al servidor en %s:%d\n",serverIp, portNumber);
+ssize_t n = 0;
 
-while(1){
-	printf("> ");
-	fflush(stdout);
-	if (fgets(msg_buffer,BUFFER_SIZE-1024,stdin) == NULL) {
-		//aca va la logica de error en el buffer
-		break;
-	}
+n = recv(sockfd,recv_buffer,BUFFER_SIZE,0);
 
-	//remover newline del mensaje
-	msg_buffer[strcspn(msg_buffer, "\n")] = '\0';
+if(n<=0){
+	perror("fallo algo");
+}
 
-	if(strcmp(send_buffer,"exit") == 0 || strcmp(send_buffer,"EXIT") == 0){
-		printf("desconectando");
-		//aca va la logica de desconexion de cliente controlada
-		break;
-	}
+if(strcmp(recv_buffer,"INICIO_PARTIDA") != 0){
+	perror("no llego el inicio partida");
+}
 
-	snprintf(send_buffer,BUFFER_SIZE,"[%s]: %s", nickName,msg_buffer);
+memset(send_buffer,0,BUFFER_SIZE);
+snprintf(send_buffer,BUFFER_SIZE,"%s", nickName);
+send(sockfd,send_buffer,strlen(send_buffer),0);
+memset(send_buffer,0,BUFFER_SIZE);
 
-	if (send(sockfd,send_buffer,strlen(send_buffer),0) < 0 ){
-		//aca va la logiva de recupero de mensaje o notificacion de error
-		perror("fallo el envio del mensaje al server");
-		break;
+bool continuar = TRUE;
+while(continuar){
+
+	while(1){
+		memset(recv_buffer,0,BUFFER_SIZE);
+		n = recv(sockfd,recv_buffer,BUFFER_SIZE,0);
+		if(n<0){
+			perror("fallo la entrada de la palabra");
+			close(sockfd);
+			return 1;
+		}
+
+		if(n==0){
+			printf("el servidor se desconectó\n");
+			close(sockfd);
+			return 1;
+		}
+
+		if(strcmp("PERDISTE",recv_buffer)==0){
+			printf("Perdiste la partida\n");
+			break;
+		}
+
+		if(strcmp("GANASTE",recv_buffer)==0){
+			printf("Ganaste la partida\n");
+			break;
+		}
+
+		printf("[server]: %s\n",recv_buffer);
+		memset(recv_buffer,0,BUFFER_SIZE);
+
+
+		printf("> ");
+		fflush(stdout);
+		fflush(stdin);
+		char entrada[5];
+		scanf("%s",entrada);
+		strcpy(send_buffer,entrada);
+		fflush(stdin);
+		fflush(stdout);
+
+		//remover newline del mensaje
+		send_buffer[strcspn(send_buffer, "\n")] = '\0';
+
+		if(strcmp(send_buffer,"exit") == 0 || strcmp(send_buffer,"EXIT") == 0){
+			printf("desconectando...\n");
+			//aca va la logica de desconexion de cliente controlada
+			break;
+		}
+
+		if (send(sockfd,send_buffer,strlen(send_buffer),0) < 0 ){
+			perror("fallo el envio del mensaje al server");
+			close(sockfd);
+			return 1;
+		}
+	memset(send_buffer,0,BUFFER_SIZE);
 	}
 
 	memset(recv_buffer,0,BUFFER_SIZE);
-	ssize_t n = recv(sockfd,recv_buffer,BUFFER_SIZE -1,0);
-
-	if(n <= 0){
-		printf("server desconextado o ocurrio un error\n");
+	printf("Terminó su juego, seguir jugando? [Y/N]: ");
+	char letra[5];
+	TAG:
+	fflush(stdout);
+	fflush(stdin);
+	scanf("%s",letra);
+	switch(letra[0]){
+		case 'Y':
+		case 'y':
+			memset(send_buffer,0,BUFFER_SIZE);
+			snprintf(send_buffer,BUFFER_SIZE,"SEGUIR");
+			send(sockfd,send_buffer,strlen(send_buffer),0);
+			memset(send_buffer,0,BUFFER_SIZE);
 		break;
+		case 'N':
+		case 'n':
+			memset(send_buffer,0,BUFFER_SIZE);
+                        snprintf(send_buffer,BUFFER_SIZE,"FINALIZAR");
+                        send(sockfd,send_buffer,strlen(send_buffer),0);
+                        memset(send_buffer,0,BUFFER_SIZE);
+			continuar = FALSE;
+		break;
+		default:
+			printf("letra invalida, por favor ingrese nuevamente\n >");
+		goto TAG;
 	}
-
-
-	printf("[server]: %s\n",recv_buffer);
 }
-
 
 close(sockfd);
 return 0;
