@@ -1,3 +1,10 @@
+/*
+Integrantes del grupo:
+- Berti Rodrigo
+- Burnowicz Alejo
+- Fernandes Leonel
+- Federico Agustin
+*/
 #ifndef PARTIDA_H
 #define PARTIDA_H
 // Declare the thread function

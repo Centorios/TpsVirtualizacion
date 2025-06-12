@@ -1,3 +1,10 @@
+/*
+Integrantes del grupo:
+- Berti Rodrigo
+- Burnowicz Alejo
+- Fernandes Leonel
+- Federico Agustin
+*/
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>

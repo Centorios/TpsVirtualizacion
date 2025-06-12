@@ -1,3 +1,11 @@
+/*
+Integrantes del grupo:
+- Berti Rodrigo
+- Burnowicz Alejo
+- Fernandes Leonel
+- Federico Agustin
+*/
+
 #ifndef CLIENT_HANDLER_H
 #define CLIENT_HANDLER_H
 
