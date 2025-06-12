@@ -1,10 +1,10 @@
-/*#include <stdio.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #define MAX_LEN 100
 
-void devolverPalabraJuego(char *destino, char *original);
+void devolverPalabraJuego(char *destino, int largo);
 int partida(const char *palabra);
 
 int main()
@@ -33,26 +33,39 @@ int main()
 int partida(const char *palabra)
 {
     int contador = 0;
+    int largoPalabra = strlen(palabra);
     char palabraJuego[MAX_LEN];
-    char palabraLeida;
+    char palabraLeida[MAX_LEN];
     int coincidioLetra;
 
-    devolverPalabraJuego(palabraJuego, palabra);
+    devolverPalabraJuego(palabraJuego, largoPalabra);
 
     while (contador < 5)
     {
         printf("Palabra actual: %s\n", palabraJuego);
-        printf("Ingresa una letra: ");
+        printf("Ingresa una letra o la palabra completa: ");
         scanf("%s", palabraLeida);
         coincidioLetra = 0;
 
-        int i = 0;
-        while (palabraJuego[i] != "\0")
+        if (strlen(palabraLeida) > 1)
         {
-            if (palabraJuego[i] != palabra[i] && palabra[i] == palabraLeida)
+            if (strcmp(palabraLeida, palabra) == 0)
             {
-                palabraJuego[i] = palabraLeida;
-                coincidioLetra = 1;
+                printf("¡Felicidades, has ganado la partida! La palabra era: %s\n", palabra);
+                return 0;
+            }
+            else
+                contador++;
+        }
+        else
+        {
+            for (int i = 0; i < largoPalabra; i++)
+            {
+                if (palabraJuego[i] != palabra[i] && palabra[i] == palabraLeida[0])
+                {
+                    palabraJuego[i] = palabraLeida[0];
+                    coincidioLetra = 1;
+                }
             }
 
             if (!coincidioLetra)
@@ -62,31 +75,16 @@ int partida(const char *palabra)
                 printf("¡Felicidades, has ganado la partida! La palabra era: %s\n", palabra);
                 return 0;
             }
-            i++;
         }
-
-        printf("Qué pena, has perdido la partida. La palabra era: %s\n", palabra);
-        return 1;
     }
+
+    printf("Qué pena, has perdido la partida. La palabra era: %s\n", palabra);
+    return 1;
 }
 
-void devolverPalabraJuego(char *destino, char *original)
+void devolverPalabraJuego(char *destino, int largo)
 {
-    int i = 0;
-    while (i >= 0)
-    {
-        if (original[i] == " ")
-        {
-            destino[i] = " ";
-        }
-        else if (original[i] == "\0")
-        {
-            destino[i] = "\0";
-            i = -1;
-        }
-        else
-        {
-            destino[i] = "_";
-        }
-    }
-}*/
+    for (int i = 0; i < largo; i++)
+        destino[i] = '_';
+    destino[largo] = '\0';
+}
