@@ -8,6 +8,7 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <pthread.h>
+#include <signal.h>
 #include "cliente_handler.h"
 #include "partida.h"
 #define FALSE 0
@@ -24,8 +25,11 @@ typedef struct {
 } ParametrosThreadGame;
 
 
-int main(int argc, char *argv[]){
+bool termProcess = TRUE;
 
+int main(int argc, char *argv[]){
+//signal(SIGINT,sigintHandler);
+//signal(SIGUSR1,sigusrHandler);
 ////////////////////////////////////////////////////////////////////////////
 if(argc > 7) {
         printf("parametros invalidos\n");
@@ -55,7 +59,6 @@ while(i < argc)
 			serverPort = atoi(argv[i+1]);
 			i++;
 			port = TRUE;
-			
 		}
 
 		if(strcmp(argv[i],"-usuarios") == 0 || strcmp(argv[i],"-u") ==0){
@@ -144,9 +147,8 @@ if (listen(server_fd, maxUsers) < 0) {
 
 printf("servidor a la escucha en el puerto: %d\n",serverPort);
 
+while (termProcess){
 
-
-while (1){
 	int* client_fd = malloc(sizeof(int));
 
 	if (!client_fd) {
@@ -171,7 +173,8 @@ while (1){
         params.cliente_id = client_fd;
 	params.cantFrases = &cantidadFrases;
 	params.frases = frases;
-
+	params.puntuacion = malloc(sizeof(int));
+        *params.puntuacion=0;
 	if(pthread_create(&tid,NULL,handle_client,&params) != 0){
 		perror("fallo la creacion del thread");
 		close(*client_fd);
@@ -182,6 +185,19 @@ while (1){
 
 
 
+}
+
+FILE* fi = fopen("/tmp/resultado","r");
+
+if (fi == NULL) {
+	perror("Error opening file");
+        return 1;
+}
+int number;
+char character;
+    // Read until end of file
+while (fscanf(file, "%d|%c\n", &number, &character) != EOF) {
+	printf("Read tuple: %d | %c\n", number, character);
 }
 
 

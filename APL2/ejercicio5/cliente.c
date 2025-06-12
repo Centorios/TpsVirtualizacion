@@ -203,7 +203,6 @@ while(continuar){
 			printf("letra invalida, por favor ingrese nuevamente\n >");
 		goto TAG;
 	}
-	printf("sali del switch\n");
 }
 
 close(sockfd);

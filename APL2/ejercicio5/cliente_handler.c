@@ -55,10 +55,12 @@ void* handle_client(void* arg) {
 			printf("%s perdio el juego\n",params.nickName);
 			snprintf(resp_buffer,BUFFER_SIZE,"PERDISTE");
     			send(client_fd,resp_buffer,strlen(resp_buffer),0);
+			(*params.puntuacion)=0;
 		} else {
 			printf("%s ganó el juego\n",params.nickName);
                         snprintf(resp_buffer,BUFFER_SIZE,"GANASTE");
                         send(client_fd,resp_buffer,strlen(resp_buffer),0);
+			(*params.puntuacion)+=1;
 		}
 
 		memset(recv_buffer,0,BUFFER_SIZE);
@@ -74,6 +76,11 @@ void* handle_client(void* arg) {
 			break;
 		}
 	}
+
+    FILE* file = fopen("/tmp/resultado","a+");
+    fprintf(file,"%d|%s\n",*params.puntuacion,params.nickName);
+    free(params.puntuacion);
+    fclose(file);
 
     close(client_fd);
     printf("Client connection closed (fd: %d)\n", client_fd);
