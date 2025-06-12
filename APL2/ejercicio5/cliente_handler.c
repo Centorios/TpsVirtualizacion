@@ -54,22 +54,25 @@ void* handle_client(void* arg) {
 			printf("%s perdio el juego\n",params.nickName);
 			snprintf(resp_buffer,BUFFER_SIZE,"PERDISTE");
     			send(client_fd,resp_buffer,strlen(resp_buffer),0);
-			break;
 		} else {
 			printf("%s ganó el juego\n",params.nickName);
                         snprintf(resp_buffer,BUFFER_SIZE,"GANASTE");
                         send(client_fd,resp_buffer,strlen(resp_buffer),0);
-			break;
 		}
-/*
+
+		memset(recv_buffer,0,BUFFER_SIZE);
 		n =recv(client_fd,recv_buffer,BUFFER_SIZE,0);
     		if(n<=0){
 			break;
 		}
-	snprintf(resp_buffer,BUFFER_SIZE, "ack");
-    		send(client_fd, resp_buffer, strlen(resp_buffer), 0);
+		if(strcmp(recv_buffer,"SEGUIR") == 0){
+
+		}
+		if(strcmp(recv_buffer,"FINALIZAR") == 0){
+			break;
+		}
 		memset(recv_buffer,0,BUFFER_SIZE);
-*/
+		memset(resp_buffer,0,BUFFER_SIZE);
 	}
 
     close(client_fd);
