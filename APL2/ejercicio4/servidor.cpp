@@ -356,11 +356,13 @@ int main(int argc, char *argv[]){
         // Bucle principal del juego
         while(intentosRestantes > 0 && !adivinado && !finalizar_servidor) {
             // Permitir que el cliente envíe una letra
+            cout << "voy a largar sem cliente" << endl;
             sem_post(semaforoCliente);
             
             // Esperar letra del cliente
+            cout << "voy a esperar sem servidor" << endl;
             sem_wait(semaforoServidor);
-            
+            cout << "termine de esperar sem servidor << endl;
             // Procesar letra
             char letra = *letrAAdivinar;
             bool letraCorrecta = false;
@@ -398,6 +400,7 @@ int main(int argc, char *argv[]){
             // Si la partida terminó, esperar confirmación del cliente
             if(respuesta->partidaTerminada) {
                 sem_wait(semaforoServidor);
+                cout << "termino la partida: " << string(nicknameCliente) << endl;
                 break;
             }
         }

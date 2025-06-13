@@ -199,10 +199,13 @@ int main(int argc, char *argv[]) {
     cout << "Conectando al servidor con nickname: " << nicknameCliente << endl;
 
     // Notificar al servidor
+    cout << "mando sem server" << endl;
     sem_post(semaforoServidor);
 
     // Esperar inicio de partida
+    cout << "Esperando que el servidor inicie la partida..." << endl;
     sem_wait(semaforoCliente);
+    cout << "Partida iniciada por el servidor." << endl;
 
     cout << "Partida iniciada. Ingrese letras para adivinar la frase." << endl;
     cout << "Escriba 'exit' para salir en cualquier momento." << endl;
