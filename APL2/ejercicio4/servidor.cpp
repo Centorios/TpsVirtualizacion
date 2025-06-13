@@ -299,7 +299,7 @@ int main(int argc, char *argv[]){
         return 1;
     }
 
-    sem_t *semaforoClienteUnico = sem_open(NOMBRE_SEMAFORO_CLIENTE_UNICO, O_CREAT | O_EXCL, 0600, 1);
+    sem_t *semaforoClienteUnico = sem_open(NOMBRE_SEMAFORO_CLIENTE_UNICO, O_CREAT, 0600, 1);
     if (semaforoClienteUnico == SEM_FAILED) {
         cerr << "Error al crear semáforo cliente único" << endl;
         sem_close(semaforoServidor);
