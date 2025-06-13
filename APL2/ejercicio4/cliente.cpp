@@ -24,7 +24,6 @@ using namespace std;
 
 #define NOMBRE_SEMAFORO_SERVIDOR "semaforoServidor"
 #define NOMBRE_SEMAFORO_CLIENTE "semaforoCliente"
-#define NOMBRE_SEMAFORO_CLIENTE_UNICO "semaforoClienteUnico"
 #define NOMBRE_MEMORIA "miMemoria"
 #define NOMBRE_MEMORIA_RESPUESTA "miMemoriaRespuesta"
 
@@ -188,23 +187,6 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    sem_t *semaforoClienteUnico = sem_open(NOMBRE_SEMAFORO_CLIENTE_UNICO, O_CREAT, 0600, 0);
-    if (semaforoClienteUnico == SEM_FAILED) {
-        cerr << "Error al crear semáforo cliente único" << endl;
-        sem_close(semaforoServidor);
-        sem_close(semaforoCliente);
-        munmap(respuesta, sizeof(RespuestaServidor));
-        munmap(nicknameCliente, 20 * sizeof(char));
-        munmap(letraADivinar, sizeof(char));
-        shm_unlink(NOMBRE_MEMORIA_RESPUESTA);
-        shm_unlink("miMemoriaNickname");
-        shm_unlink(NOMBRE_MEMORIA);
-        sem_unlink(NOMBRE_SEMAFORO_SERVIDOR);
-        sem_unlink(NOMBRE_SEMAFORO_CLIENTE);
-        sem_unlink(NOMBRE_SEMAFORO_CLIENTE_UNICO);
-        return 1;
-    }
-
     // Copiar nickname a memoria compartida
     strncpy(nicknameCliente, argv[2], 20);
     nicknameCliente[19] = '\0';
@@ -268,7 +250,6 @@ int main(int argc, char *argv[]) {
     // Liberar recursos
     sem_close(semaforoServidor);
     sem_close(semaforoCliente);
-    sem_close(semaforoClienteUnico);
     munmap(respuesta, sizeof(RespuestaServidor));
     munmap(nicknameCliente, 20 * sizeof(char));
     munmap(letraADivinar, sizeof(char));
