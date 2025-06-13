@@ -83,7 +83,7 @@ int main(int argc, char *argv[]) {
     }
 
     // Configurar memoria compartida
-    int idMemoria = shm_open(NOMBRE_MEMORIA, O_CREAT, 0600);
+    int idMemoria = shm_open(NOMBRE_MEMORIA, O_CREAT | O_RDWR, 0600);
     if (idMemoria == -1) {
         cerr << "Error al crear la memoria compartida." << endl;
         return 1;
@@ -102,7 +102,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    int idMemoriaNickname = shm_open("miMemoriaNickname", O_CREAT, 0600);
+    int idMemoriaNickname = shm_open("miMemoriaNickname", O_CREAT | O_RDWR, 0600);
     if (idMemoriaNickname == -1) {
         cerr << "Error al crear la memoria para nickname." << endl;
         munmap(letraADivinar, sizeof(char));
@@ -127,7 +127,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    int idMemoriaRespuesta = shm_open(NOMBRE_MEMORIA_RESPUESTA, O_CREAT, 0600);
+    int idMemoriaRespuesta = shm_open(NOMBRE_MEMORIA_RESPUESTA, O_CREAT | O_RDWR, 0600);
     if (idMemoriaRespuesta == -1) {
         cerr << "Error al crear la memoria para respuesta." << endl;
         munmap(nicknameCliente, 20 * sizeof(char));
