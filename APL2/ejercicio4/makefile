@@ -1,7 +1,7 @@
 # Compilador
 CXX = g++
 # Opciones de compilación
-CXXFLAGS = -Wall -Wextra -std=c++14
+CXXFLAGS = -Wall -Wextra -std=c++14 -g
 
 # Nombres de los ejecutables
 SERVER = servidor

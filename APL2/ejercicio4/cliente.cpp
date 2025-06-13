@@ -173,10 +173,8 @@ int main(int argc, char *argv[]) {
     }
 
     int pepe;
-    if(semaforoServidor == EACCES){
-        sem_getvalue(semaforoServidor,&pepe)
-         cout << "sem server ya inicializado en: " << pepe << endl;
-    }
+    sem_getvalue(semaforoServidor,&pepe);
+    cout << "sem server ya inicializado en: " << pepe << endl;
 
     sem_t *semaforoCliente = sem_open(NOMBRE_SEMAFORO_CLIENTE, O_CREAT, 0600, 0);
     if (semaforoCliente == SEM_FAILED) {
@@ -267,8 +265,6 @@ int main(int argc, char *argv[]) {
     shm_unlink(NOMBRE_MEMORIA);
     sem_unlink(NOMBRE_SEMAFORO_SERVIDOR);
     sem_unlink(NOMBRE_SEMAFORO_CLIENTE);
-    sem_unlink(NOMBRE_SEMAFORO_CLIENTE_UNICO);
-
     cout << "Cliente finalizado correctamente." << endl;
     return 0;
 }
