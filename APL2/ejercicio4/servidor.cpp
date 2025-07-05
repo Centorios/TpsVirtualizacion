@@ -38,6 +38,9 @@ struct respuestaCliente {
 
 bool partida_en_curso = false;
 bool finalizar_servidor = false;
+bool finalizar_por_sigursr1 = false;
+
+sem_t *semServidorGlobal = nullptr;
 
 void manejador_seniales(int sig) {
     if (sig == SIGUSR1) {
@@ -46,10 +49,15 @@ void manejador_seniales(int sig) {
             cout << "[SIGUSR1] Finalizando servidor (no hay partida en curso)..." << endl;
         } else {
             cout << "[SIGUSR1] Esperando a que finalice la partida..." << endl;
+            finalizar_por_sigursr1 = true;
         }
     } else if (sig == SIGUSR2) {
         finalizar_servidor = true;
         cout << "[SIGUSR2] Finalizando servidor inmediatamente..." << endl;
+    }
+
+    if(semServidorGlobal != nullptr){
+        sem_post(semServidorGlobal); // Desbloquea el servidor si está esperando
     }
 }
 
@@ -149,8 +157,10 @@ int main(int argc, char *argv[]) {
     ftruncate(shmResp, sizeof(respuestaCliente));
     respuestaCliente *respuesta = (respuestaCliente *)mmap(NULL, sizeof(respuestaCliente), PROT_READ | PROT_WRITE, MAP_SHARED, shmResp, 0);
 
+    
     // Semáforos
     sem_t *semServidor = sem_open(NOMBRE_SEMAFORO_SERVIDOR, O_CREAT, 0600, 0);
+    semServidorGlobal = semServidor;
     sem_t *semCliente = sem_open(NOMBRE_SEMAFORO_CLIENTE, O_CREAT, 0600, 0);
     sem_t *semClienteUnico = sem_open(NOMBRE_SEMAFORO_CLIENTE_UNICO, O_CREAT | O_EXCL, 0600, 1);
     if (semClienteUnico == SEM_FAILED) {
@@ -169,6 +179,11 @@ int main(int argc, char *argv[]) {
         // Esperar a que un cliente se conecte
         sem_wait(semServidor);
 
+        if (finalizar_servidor) {
+            cout << "Servidor finalizado por señal." << endl;
+            break;
+        }
+
         if (sem_trywait(semClienteUnico) == -1) {
             cerr << "Cliente rechazado: ya hay uno conectado." << endl;
             continue;
@@ -184,20 +199,33 @@ int main(int argc, char *argv[]) {
         int intentos = intentosMax;
         bool gano = false;
 
+        respuesta->letraCorrecta = false;
+        respuesta->intentosRestantes = intentos;
+        respuesta->partidaTerminada = false;
+
         cout << "Nueva partida con: " << nickname << endl;
 
         while (intentos > 0 && !gano && !finalizar_servidor) {
             sem_post(semCliente);
             sem_wait(semServidor);
 
+            if(finalizar_servidor) {
+                cout << "Partida cancelada por señal." << endl;
+                break;
+            }
+
             char l = *letra;
             bool ok = false;
+
+            cout << "Frase restante: " << fraseAux << endl;
 
             auto it = find(fraseAux.begin(), fraseAux.end(), l);
             if (it != fraseAux.end()) {
                 ok = true;
                 fraseAux.erase(it);
                 if (fraseAux.empty()) gano = true;
+                cout << "Letra encontrada y eliminada: " << l << endl;
+                cout << "Frase restante ahora: " << fraseAux << endl;
             }
 
             if (!ok) intentos--;  // Solo descuento si se equivocó
@@ -211,6 +239,17 @@ int main(int argc, char *argv[]) {
                 sem_wait(semServidor);
                 break;
             }
+
+            if(ok){
+                ok = false;
+            }
+
+        }
+
+        if (finalizar_por_sigursr1) {
+            cout << "Partida cancelada por SIGUSR1." << endl;
+            finalizar_servidor = true;
+            break;
         }
 
         auto fin = chrono::high_resolution_clock::now();
@@ -223,6 +262,7 @@ int main(int argc, char *argv[]) {
 
         partida_en_curso = false;
         sem_post(semClienteUnico);
+
         //limpio la respuesta para el próximo cliente
         respuesta->letraCorrecta = false;
         respuesta->intentosRestantes = 0;

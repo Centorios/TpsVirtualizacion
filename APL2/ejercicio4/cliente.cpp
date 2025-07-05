@@ -128,6 +128,11 @@ int main(int argc, char* argv[]) {
     cout << "Juego iniciado. Escriba letras (o 'exit' para salir)." << endl;
     string entrada;
     while (true) {
+        if (respuesta->partidaTerminada) {
+            cout << (respuesta->intentosRestantes ? "Ganaste!" : "Perdiste.") << endl;
+            //sem_post(semServidor); // Confirmar fin
+            break;
+        }
         cout << "Letra: ";
         cin >> entrada;
 
@@ -151,9 +156,10 @@ int main(int argc, char* argv[]) {
 
         if (respuesta->partidaTerminada) {
             cout << (respuesta->intentosRestantes ? "Ganaste!" : "Perdiste.") << endl;
-            sem_post(semServidor); // Confirmar fin
+            //sem_post(semServidor); // Confirmar fin
             break;
         }
+
     }
 
     liberarRecursos();
