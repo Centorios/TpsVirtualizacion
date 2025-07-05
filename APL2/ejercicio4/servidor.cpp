@@ -28,6 +28,30 @@ using namespace std;
 #define NOMBRE_SEMAFORO_CLIENTE_UNICO "semaforoClienteUnico"
 #define NOMBRE_MEMORIA "miMemoria"
 #define NOMBRE_MEMORIA_RESPUESTA "miMemoriaRespuesta"
+#define NOMBRE_MEMORIA_NICKNAME "miMemoriaNickname"
+
+struct respuestaCliente {
+    bool letraCorrecta;
+    int intentosRestantes;
+    bool partidaTerminada;
+};
+
+bool partida_en_curso = false;
+bool finalizar_servidor = false;
+
+void manejador_seniales(int sig) {
+    if (sig == SIGUSR1) {
+        if (!partida_en_curso) {
+            finalizar_servidor = true;
+            cout << "[SIGUSR1] Finalizando servidor (no hay partida en curso)..." << endl;
+        } else {
+            cout << "[SIGUSR1] Esperando a que finalice la partida..." << endl;
+        }
+    } else if (sig == SIGUSR2) {
+        finalizar_servidor = true;
+        cout << "[SIGUSR2] Finalizando servidor inmediatamente..." << endl;
+    }
+}
 
 void mostrarAyuda() {
     cout << "Uso: ./servidor [OPCIONES]" << endl;
@@ -41,399 +65,189 @@ void mostrarAyuda() {
     cout << "  ./servidor -a frases.txt -c 5" << endl;
 }
 
-void verificarParametros(int argc, char *argv[]) {
-    for(int i = 1; i < argc; i++) {
-        string arg = argv[i];
-        
-        if (arg == "-c" || arg == "--cantidad") {
-            if (i + 1 >= argc) throw runtime_error("Falta la cantidad de intentos");
-            
-            string valor = argv[i+1];
-            if (valor.find_first_not_of("0123456789") != string::npos) {
-                throw runtime_error("La cantidad de intentos debe ser un número entero positivo");
-            }
+vector<string> obtenerFrases(const string &archivo) {
+    vector<string> frases;
+    ifstream file(archivo);
+    string linea;
+    while (getline(file, linea)) {
+        if (!linea.empty()) frases.push_back(linea);
+    }
+    return frases;
+}
 
-            if(stoi(valor) < 1) throw runtime_error("La cantidad de intentos debe ser mayor a 0");
-            i++;
-            
-        } else if (arg == "-a" || arg == "--archivo") {
-            if (i + 1 >= argc) throw runtime_error("Falta la ruta del archivo");
-            
-            string rutaArchivo = argv[i+1];
-            ifstream archivo(rutaArchivo);
-            if (!archivo.good()) throw runtime_error("El archivo no existe o no se puede leer");
-            
-            archivo.seekg(0, ios::end);
-            if (archivo.tellg() == 0) throw runtime_error("El archivo está vacío");
-            i++;
-            
-        } else if (arg == "-h" || arg == "--help") {
-            return;
-        } else {
-            throw runtime_error("Parámetro desconocido: " + arg);
-        }
+void mostrarRanking(const vector<pair<pair<bool, string>, chrono::microseconds>> &ranking, const string &ganador, chrono::microseconds tiempoGanador) {
+    cout << "\n=== RANKING ===" << endl;
+    for (const auto &r : ranking) {
+        cout << "Jugador: " << r.first.second << " - Resultado: " << (r.first.first ? "Ganó" : "Perdió") << " - Tiempo: " << chrono::duration_cast<chrono::milliseconds>(r.second).count() << " ms" << endl;
+    }
+    if (!ganador.empty()) {
+        cout << "\nGanador: " << ganador << " con " << chrono::duration_cast<chrono::milliseconds>(tiempoGanador).count() << " ms" << endl;
     }
 }
 
-vector<string> obtenerFrases(string rutaArchivo){
-    try {
-        ifstream archivo(rutaArchivo);
-        if (!archivo.is_open()) throw runtime_error("No se pudo abrir el archivo");
-
-        string frase;
-        vector<string> frasesDisponibles;
-
-        while (getline(archivo, frase)) {
-            if (!frase.empty()) frasesDisponibles.push_back(frase);
-        }
-
-        archivo.close();
-
-        if (frasesDisponibles.empty()) throw runtime_error("El archivo no contiene frases válidas");
-        return frasesDisponibles;
-
-    } catch (const exception &e) {
-        cerr << "Error al leer el archivo: " << e.what() << endl;
-        return {};
-    }
-}
-
-bool partida_en_curso = false;
-bool finalizar_servidor = false;
-
-void manejador_seniales(int signal) {
-    switch(signal) {
-        case SIGUSR1:
-            if (!partida_en_curso) {
-                cout << "SIGUSR1 recibido - Finalizando servidor (no hay partida en curso)" << endl;
-                finalizar_servidor = true;
-            } else {
-                cout << "SIGUSR1 recibido - Esperando finalización de partida..." << endl;
-            }
-            break;
-            
-        case SIGUSR2:
-            cout << "SIGUSR2 recibido - Finalizando servidor inmediatamente" << endl;
-            finalizar_servidor = true;
-            break;
-    }
-}
-
-struct respuestaCliente {
-    bool letraCorrecta;
-    int intentosRestantes;
-    bool partidaTerminada;
-};
-
-void ordenarRanking(vector<pair<pair<bool, string>, chrono::microseconds>> &rankingClientes) {
-    sort(rankingClientes.begin(), rankingClientes.end(), [](const auto &a, const auto &b) {
-        if (a.first.first != b.first.first) return a.first.first < b.first.first;
-        return a.second < b.second;
-    });
-}
-
-void mostrarResultados(const vector<pair<pair<bool, string>, chrono::microseconds>> rankingClientes, 
-    string nombreClienteGanador, chrono::microseconds tiempoClienteGanador){
-    cout << "\n=== RANKING DE CLIENTES ===" << endl;
-    for(const auto &cliente : rankingClientes) {
-        cout << "Cliente: " << cliente.first.second 
-             << " - Adivinó: " << (cliente.first.first ? "Sí" : "No") 
-             << " - Tiempo: " << chrono::duration_cast<chrono::milliseconds>(cliente.second).count() 
-             << " ms" << endl;
-    }
-    cout << "\nCliente ganador: " << nombreClienteGanador 
-         << " con un tiempo de " << chrono::duration_cast<chrono::milliseconds>(tiempoClienteGanador).count() 
-         << " ms" << endl;  
-}
-
-int main(int argc, char *argv[]){
+int main(int argc, char *argv[]) {
+    // Señales
     signal(SIGINT, SIG_IGN);
     signal(SIGUSR1, manejador_seniales);
     signal(SIGUSR2, manejador_seniales);
 
-    if (argc < 5){
-        cout << "Parametros incompletos." << endl;
+    if (argc != 5) {
         mostrarAyuda();
         return 1;
     }
 
-    if(strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) {
-        mostrarAyuda();
-        return 0;
+    string rutaArchivo;
+    int intentosMax = 0;
+
+    // Parámetros
+    for (int i = 1; i < argc; ++i) {
+        string arg = argv[i];
+        if ((arg == "-a" || arg == "--archivo") && i + 1 < argc) {
+            rutaArchivo = argv[++i];
+        } else if ((arg == "-c" || arg == "--cantidad") && i + 1 < argc) {
+            intentosMax = stoi(argv[++i]);
+        } else if (arg == "-h" || arg == "--help") {
+            mostrarAyuda();
+            return 0;
+        }
     }
 
-    verificarParametros(argc, argv);
-
-    string rutaArchivo = argv[2];
-    int cantidadIntentos = stoi(argv[4]);
-    vector<string> frasesDisponibles = obtenerFrases(rutaArchivo);
-
-    if (frasesDisponibles.empty()) {
-        cerr << "No se pudieron obtener frases del archivo." << endl;
+    if (rutaArchivo.empty() || intentosMax < 1) {
+        cerr << "Parámetros inválidos." << endl;
         return 1;
     }
 
-    // Configuración de memoria compartida
-    int idMemoria = shm_open(NOMBRE_MEMORIA, O_CREAT | O_RDWR, 0600);
-    if (idMemoria == -1) {
-        cerr << "Error al crear la memoria compartida." << endl;
-        return 1;
-    }
-
-    if (ftruncate(idMemoria, sizeof(char)) == -1) {
-        cerr << "Error al definir el tamaño de la memoria compartida." << endl;
-        close(idMemoria);
-        shm_unlink(NOMBRE_MEMORIA);
-        return 1;
-    }
-
-    char *letrAAdivinar = (char *)mmap(NULL, sizeof(char), PROT_READ | PROT_WRITE, MAP_SHARED, idMemoria, 0);
-    if (letrAAdivinar == MAP_FAILED) {
-        cerr << "Error al mapear la memoria compartida." << endl;
-        close(idMemoria);
-        shm_unlink(NOMBRE_MEMORIA);
-        return 1;
-    }
-
-    int idMemoriaNickname = shm_open("miMemoriaNickname", O_CREAT | O_RDWR, 0600);
-    if (idMemoriaNickname == -1) {
-        cerr << "Error al crear la memoria para nickname." << endl;
-        munmap(letrAAdivinar, sizeof(char));
-        close(idMemoria);
-        shm_unlink(NOMBRE_MEMORIA);
-        return 1;
-    }
-
-    if (ftruncate(idMemoriaNickname, 20 * sizeof(char)) == -1) {
-        cerr << "Error al definir el tamaño de la memoria para nickname." << endl;
-        close(idMemoriaNickname);
-        shm_unlink("miMemoriaNickname");
-        munmap(letrAAdivinar, sizeof(char));
-        close(idMemoria);
-        shm_unlink(NOMBRE_MEMORIA);
-        return 1;
-    }
-
-    char *nicknameCliente = (char *)mmap(NULL, 20 * sizeof(char), PROT_READ | PROT_WRITE, MAP_SHARED, idMemoriaNickname, 0);
-    if (nicknameCliente == MAP_FAILED) {
-        cerr << "Error al mapear la memoria para nickname." << endl;
-        close(idMemoriaNickname);
-        shm_unlink("miMemoriaNickname");
-        munmap(letrAAdivinar, sizeof(char));
-        close(idMemoria);
-        shm_unlink(NOMBRE_MEMORIA);
-        return 1;
-    }
-
-    int idMemoriaRespuesta = shm_open(NOMBRE_MEMORIA_RESPUESTA, O_CREAT | O_RDWR, 0600);
-    if (idMemoriaRespuesta == -1) {
-        cerr << "Error al crear la memoria para respuesta." << endl;
-        munmap(nicknameCliente, 20 * sizeof(char));
-        close(idMemoriaNickname);
-        shm_unlink("miMemoriaNickname");
-        munmap(letrAAdivinar, sizeof(char));
-        close(idMemoria);
-        shm_unlink(NOMBRE_MEMORIA);
-        return 1;
-    }
-
-    if (ftruncate(idMemoriaRespuesta, sizeof(respuestaCliente)) == -1) {
-        cerr << "Error al definir el tamaño de la memoria para respuesta." << endl;
-        close(idMemoriaRespuesta);
-        shm_unlink(NOMBRE_MEMORIA_RESPUESTA);
-        munmap(nicknameCliente, 20 * sizeof(char));
-        close(idMemoriaNickname);
-        shm_unlink("miMemoriaNickname");
-        munmap(letrAAdivinar, sizeof(char));
-        close(idMemoria);
-        shm_unlink(NOMBRE_MEMORIA);
-        return 1;
-    }
-
-    respuestaCliente *respuesta = (respuestaCliente *)mmap(NULL, sizeof(respuestaCliente), PROT_READ | PROT_WRITE, MAP_SHARED, idMemoriaRespuesta, 0);
-    if (respuesta == MAP_FAILED) {
-        cerr << "Error al mapear la memoria para respuesta." << endl;
-        close(idMemoriaRespuesta);
-        shm_unlink(NOMBRE_MEMORIA_RESPUESTA);
-        munmap(nicknameCliente, 20 * sizeof(char));
-        close(idMemoriaNickname);
-        shm_unlink("miMemoriaNickname");
-        munmap(letrAAdivinar, sizeof(char));
-        close(idMemoria);
-        shm_unlink(NOMBRE_MEMORIA);
-        return 1;
-    }
-
-    // Configuración de semáforos
-    sem_t *semaforoServidor = sem_open(NOMBRE_SEMAFORO_SERVIDOR, O_CREAT, 0600, 0);
-    if (semaforoServidor == SEM_FAILED) {
-        cerr << "Error al crear semáforo servidor" << endl;
-        munmap(respuesta, sizeof(respuestaCliente));
-        munmap(nicknameCliente, 20 * sizeof(char));
-        munmap(letrAAdivinar, sizeof(char));
-        close(idMemoriaRespuesta);
-        shm_unlink(NOMBRE_MEMORIA_RESPUESTA);
-        close(idMemoriaNickname);
-        shm_unlink("miMemoriaNickname");
-        close(idMemoria);
-        shm_unlink(NOMBRE_MEMORIA);
-        sem_unlink(NOMBRE_SEMAFORO_SERVIDOR);
-        return 1;
-    }
-
-    sem_t *semaforoCliente = sem_open(NOMBRE_SEMAFORO_CLIENTE, O_CREAT, 0600, 0);
-    if (semaforoCliente == SEM_FAILED) {
-        cerr << "Error al crear semáforo cliente" << endl;
-        sem_close(semaforoServidor);
-        munmap(respuesta, sizeof(respuestaCliente));
-        munmap(nicknameCliente, 20 * sizeof(char));
-        munmap(letrAAdivinar, sizeof(char));
-        close(idMemoriaRespuesta);
-        shm_unlink(NOMBRE_MEMORIA_RESPUESTA);
-        close(idMemoriaNickname);
-        shm_unlink("miMemoriaNickname");
-        close(idMemoria);
-        shm_unlink(NOMBRE_MEMORIA);
-        sem_unlink(NOMBRE_SEMAFORO_SERVIDOR);
-        sem_unlink(NOMBRE_SEMAFORO_CLIENTE);
-        return 1;
-    }
-
-    sem_t *semaforoClienteUnico = sem_open(NOMBRE_SEMAFORO_CLIENTE_UNICO, O_CREAT | O_EXCL, 0600, 1);
-    if (semaforoClienteUnico == SEM_FAILED) {
-        cerr << "Error al crear semáforo cliente único" << endl;
-        sem_close(semaforoServidor);
-        sem_close(semaforoCliente);
-        munmap(respuesta, sizeof(respuestaCliente));
-        munmap(nicknameCliente, 20 * sizeof(char));
-        munmap(letrAAdivinar, sizeof(char));
-        close(idMemoriaRespuesta);
-        shm_unlink(NOMBRE_MEMORIA_RESPUESTA);
-        close(idMemoriaNickname);
-        shm_unlink("miMemoriaNickname");
-        close(idMemoria);
-        shm_unlink(NOMBRE_MEMORIA);
+    // Limpieza automática si quedaron recursos colgados
+    sem_t* testSem = sem_open(NOMBRE_SEMAFORO_CLIENTE_UNICO, 0);
+    if (testSem != SEM_FAILED) {
+        sem_close(testSem);
+        cout << "[Aviso] Recursos anteriores encontrados. Se limpian automáticamente..." << endl;
         sem_unlink(NOMBRE_SEMAFORO_SERVIDOR);
         sem_unlink(NOMBRE_SEMAFORO_CLIENTE);
         sem_unlink(NOMBRE_SEMAFORO_CLIENTE_UNICO);
+        shm_unlink(NOMBRE_MEMORIA);
+        shm_unlink(NOMBRE_MEMORIA_NICKNAME);
+        shm_unlink(NOMBRE_MEMORIA_RESPUESTA);
+    }
+
+    vector<string> frases = obtenerFrases(rutaArchivo);
+    if (frases.empty()) {
+        cerr << "El archivo de frases está vacío o no se pudo leer." << endl;
         return 1;
     }
 
-    // Variables para ranking
-    vector<pair<pair<bool, string>, chrono::microseconds>> rankingClientes;
-    string nombreClienteGanador = "";
-    chrono::microseconds tiempoClienteGanador(0);
+    // Crear y mapear memoria compartida
+    int shmLetra = shm_open(NOMBRE_MEMORIA, O_CREAT | O_RDWR, 0600);
+    ftruncate(shmLetra, sizeof(char));
+    char *letra = (char *)mmap(NULL, sizeof(char), PROT_READ | PROT_WRITE, MAP_SHARED, shmLetra, 0);
 
-    cout << "Servidor iniciado. Esperando cliente..." << endl;
+    int shmNick = shm_open(NOMBRE_MEMORIA_NICKNAME, O_CREAT | O_RDWR, 0600);
+    ftruncate(shmNick, 20);
+    char *nickname = (char *)mmap(NULL, 20, PROT_READ | PROT_WRITE, MAP_SHARED, shmNick, 0);
 
-    while(!finalizar_servidor) {
-        // Esperar conexión de cliente
-        sem_wait(semaforoServidor);
-        
-        // Verificar cliente único
-        if(sem_trywait(semaforoClienteUnico) == -1) {
-            cerr << "Ya hay un cliente conectado. Rechazando conexión." << endl;
+    int shmResp = shm_open(NOMBRE_MEMORIA_RESPUESTA, O_CREAT | O_RDWR, 0600);
+    ftruncate(shmResp, sizeof(respuestaCliente));
+    respuestaCliente *respuesta = (respuestaCliente *)mmap(NULL, sizeof(respuestaCliente), PROT_READ | PROT_WRITE, MAP_SHARED, shmResp, 0);
+
+    // Semáforos
+    sem_t *semServidor = sem_open(NOMBRE_SEMAFORO_SERVIDOR, O_CREAT, 0600, 0);
+    sem_t *semCliente = sem_open(NOMBRE_SEMAFORO_CLIENTE, O_CREAT, 0600, 0);
+    sem_t *semClienteUnico = sem_open(NOMBRE_SEMAFORO_CLIENTE_UNICO, O_CREAT | O_EXCL, 0600, 1);
+    if (semClienteUnico == SEM_FAILED) {
+        cerr << "Ya hay un servidor corriendo (semáforo cliente único)." << endl;
+        return 1;
+    }
+
+    // Ranking
+    vector<pair<pair<bool, string>, chrono::microseconds>> ranking;
+    string mejorJugador;
+    chrono::microseconds mejorTiempo(0);
+
+    cout << "Servidor iniciado. Esperando clientes..." << endl;
+
+    while (!finalizar_servidor) {
+        // Esperar a que un cliente se conecte
+        sem_wait(semServidor);
+
+        if (sem_trywait(semClienteUnico) == -1) {
+            cerr << "Cliente rechazado: ya hay uno conectado." << endl;
             continue;
         }
 
         partida_en_curso = true;
-        auto inicioPartida = chrono::high_resolution_clock::now();
-        
-        // Seleccionar frase aleatoria
-        int indiceAleatorio = rand() % frasesDisponibles.size();
-        string fraseAdivinar = frasesDisponibles[indiceAleatorio];
-        string fraseAuxiliar = fraseAdivinar;
-        
-        // Eliminar espacios para la comparación
-        fraseAuxiliar.erase(remove_if(fraseAuxiliar.begin(), fraseAuxiliar.end(), 
-                            [](unsigned char c) { return isspace(c); }), fraseAuxiliar.end());
-        
-        cout << "Nueva partida iniciada. Frase: " << fraseAdivinar << endl;
-        
-        int intentosRestantes = cantidadIntentos;
-        bool adivinado = false;
+        auto inicio = chrono::high_resolution_clock::now();
 
-        // Bucle principal del juego
-        while(intentosRestantes > 0 && !adivinado && !finalizar_servidor) {
-            // Permitir que el cliente envíe una letra
-            cout << "voy a largar sem cliente" << endl;
-            sem_post(semaforoCliente);
-            
-            // Esperar letra del cliente
-            cout << "voy a esperar sem servidor" << endl;
-            sem_wait(semaforoServidor);
-            cout << "termine de esperar" << endl;
-            // Procesar letra
-            char letra = *letrAAdivinar;
-            bool letraCorrecta = false;
-            
-            // Buscar la letra en la frase
-            auto it = find(fraseAuxiliar.begin(), fraseAuxiliar.end(), letra);
-            if(it != fraseAuxiliar.end()) {
-                letraCorrecta = true;
-                fraseAuxiliar.erase(it);
-                
-                if(fraseAuxiliar.empty()) {
-                    adivinado = true;
-                    auto finPartida = chrono::high_resolution_clock::now();
-                    auto duracion = chrono::duration_cast<chrono::microseconds>(finPartida - inicioPartida);
-                    
-                    rankingClientes.push_back({{true, string(nicknameCliente)}, duracion});
-                    
-                    if(duracion < tiempoClienteGanador || tiempoClienteGanador.count() == 0) {
-                        tiempoClienteGanador = duracion;
-                        nombreClienteGanador = string(nicknameCliente);
-                    }
-                }
+        string frase = frases[rand() % frases.size()];
+        string fraseAux = frase;
+        fraseAux.erase(remove(fraseAux.begin(), fraseAux.end(), ' '), fraseAux.end());
+
+        int intentos = intentosMax;
+        bool gano = false;
+
+        cout << "Nueva partida con: " << nickname << endl;
+
+        while (intentos > 0 && !gano && !finalizar_servidor) {
+            sem_post(semCliente);
+            sem_wait(semServidor);
+
+            char l = *letra;
+            bool ok = false;
+
+            auto it = find(fraseAux.begin(), fraseAux.end(), l);
+            if (it != fraseAux.end()) {
+                ok = true;
+                fraseAux.erase(it);
+                if (fraseAux.empty()) gano = true;
             }
-            
-            intentosRestantes--;
-            
-            // Preparar respuesta
-            respuesta->letraCorrecta = letraCorrecta;
-            respuesta->intentosRestantes = intentosRestantes;
-            respuesta->partidaTerminada = (adivinado || intentosRestantes == 0);
-            
-            // Enviar respuesta
-            sem_post(semaforoCliente);
-            
-            // Si la partida terminó, esperar confirmación del cliente
-            if(respuesta->partidaTerminada) {
-                sem_wait(semaforoServidor);
-                cout << "termino la partida: " << string(nicknameCliente) << endl;
+
+            if (!ok) intentos--;  // Solo descuento si se equivocó
+
+            respuesta->letraCorrecta = ok;
+            respuesta->intentosRestantes = intentos;
+            respuesta->partidaTerminada = (gano || intentos == 0);
+            sem_post(semCliente);
+
+            if (respuesta->partidaTerminada) {
+                sem_wait(semServidor);
                 break;
             }
         }
-        
-        if(!adivinado && intentosRestantes == 0) {
-            auto finPartida = chrono::high_resolution_clock::now();
-            auto duracion = chrono::duration_cast<chrono::microseconds>(finPartida - inicioPartida);
-            rankingClientes.push_back({{false, string(nicknameCliente)}, duracion});
+
+        auto fin = chrono::high_resolution_clock::now();
+        auto duracion = chrono::duration_cast<chrono::microseconds>(fin - inicio);
+        ranking.push_back({{gano, string(nickname)}, duracion});
+        if (gano && (mejorTiempo.count() == 0 || duracion < mejorTiempo)) {
+            mejorTiempo = duracion;
+            mejorJugador = string(nickname);
         }
-        
+
         partida_en_curso = false;
-        sem_post(semaforoClienteUnico); // Permitir nuevo cliente
+        sem_post(semClienteUnico);
+        //limpio la respuesta para el próximo cliente
+        respuesta->letraCorrecta = false;
+        respuesta->intentosRestantes = 0;
+        respuesta->partidaTerminada = false;
     }
 
-    // Mostrar resultados antes de salir
-    mostrarResultados(rankingClientes, nombreClienteGanador, tiempoClienteGanador);
+    mostrarRanking(ranking, mejorJugador, mejorTiempo);
 
-    // Liberar recursos
-    sem_close(semaforoServidor);
-    sem_close(semaforoCliente);
-    sem_close(semaforoClienteUnico);
-    munmap(respuesta, sizeof(respuestaCliente));
-    munmap(nicknameCliente, 20 * sizeof(char));
-    munmap(letrAAdivinar, sizeof(char));
-    close(idMemoriaRespuesta);
-    close(idMemoriaNickname);
-    close(idMemoria);
-    shm_unlink(NOMBRE_MEMORIA_RESPUESTA);
-    shm_unlink("miMemoriaNickname");
-    shm_unlink(NOMBRE_MEMORIA);
+    // Limpieza
+    sem_close(semServidor);
+    sem_close(semCliente);
+    sem_close(semClienteUnico);
     sem_unlink(NOMBRE_SEMAFORO_SERVIDOR);
     sem_unlink(NOMBRE_SEMAFORO_CLIENTE);
     sem_unlink(NOMBRE_SEMAFORO_CLIENTE_UNICO);
+
+    munmap(letra, sizeof(char));
+    munmap(nickname, 20);
+    munmap(respuesta, sizeof(respuestaCliente));
+    close(shmLetra);
+    close(shmNick);
+    close(shmResp);
+    shm_unlink(NOMBRE_MEMORIA);
+    shm_unlink(NOMBRE_MEMORIA_NICKNAME);
+    shm_unlink(NOMBRE_MEMORIA_RESPUESTA);
 
     cout << "Servidor finalizado correctamente." << endl;
     return 0;

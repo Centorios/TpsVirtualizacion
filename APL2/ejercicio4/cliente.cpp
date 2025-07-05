@@ -26,12 +26,33 @@ using namespace std;
 #define NOMBRE_SEMAFORO_CLIENTE "semaforoCliente"
 #define NOMBRE_MEMORIA "miMemoria"
 #define NOMBRE_MEMORIA_RESPUESTA "miMemoriaRespuesta"
+#define NOMBRE_MEMORIA_NICKNAME "miMemoriaNickname"
 
 struct RespuestaServidor {
     bool letraCorrecta;
     int intentosRestantes;
     bool partidaTerminada;
 };
+
+char* letraADivinar = nullptr;
+char* nicknameCliente = nullptr;
+RespuestaServidor* respuesta = nullptr;
+sem_t *semServidor = nullptr, *semCliente = nullptr;
+int shmLetra, shmNick, shmResp;
+
+void liberarRecursos() {
+    if (respuesta) munmap(respuesta, sizeof(RespuestaServidor));
+    if (nicknameCliente) munmap(nicknameCliente, 20);
+    if (letraADivinar) munmap(letraADivinar, sizeof(char));
+    if (semServidor) sem_close(semServidor);
+    if (semCliente) sem_close(semCliente);
+    close(shmLetra);
+    close(shmNick);
+    close(shmResp);
+    // No hacer unlink acá
+}
+
+
 
 void mostrarAyuda() {
     cout << "Uso: ./cliente -n <nickname>" << endl;
@@ -44,230 +65,98 @@ void mostrarAyuda() {
     cout << "  ./cliente -n jugador1" << endl;
 }
 
-void validarNickname(const string &nickname) {
-    if (nickname.empty()) {
-        cerr << "El nickname no puede estar vacío." << endl;
-        exit(EXIT_FAILURE);
-    }
-    if (nickname.length() > 20) {
-        cerr << "El nickname no puede tener más de 20 caracteres." << endl;
-        exit(EXIT_FAILURE);
-    }
-}
-
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
+    //ignorar SIGINT
     signal(SIGINT, SIG_IGN);
 
+    string nick;
     if (argc < 2) {
-        mostrarAyuda();
+        mostrarAyuda(); 
         return 1;
     }
-
-    string opcion = argv[1];
-    if (opcion == "-h") {
-        mostrarAyuda();
-        return 0;
-    } else if (opcion == "-n") {
-        if (argc < 3) {
-            cerr << "Falta el nombre de usuario." << endl;
+    // procesar argumentos
+    for (int i = 1; i < argc; ++i) {
+        if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
             mostrarAyuda();
-            return 1;
+             return 0;
+        } else if ((strcmp(argv[i], "-n") == 0 || strcmp(argv[i], "--nickname") == 0) && i + 1 < argc) {
+            nick = argv[++i];
         }
-        string nickname = argv[2];
-        validarNickname(nickname);
-        cout << "Nickname válido: " << nickname << endl;
-    } else {
-        cerr << "Opción no reconocida: " << opcion << endl;
-        mostrarAyuda();
+    }
+    // validar nickname
+    if (nick.empty() || nick.length() > 20) {
+        cerr << "Nickname inválido." << endl;
         return 1;
     }
+    //abro memorias compartidas
+    shmLetra = shm_open(NOMBRE_MEMORIA, O_RDWR, 0600);
+    shmNick  = shm_open(NOMBRE_MEMORIA_NICKNAME, O_RDWR, 0600);
+    shmResp  = shm_open(NOMBRE_MEMORIA_RESPUESTA, O_RDWR, 0600);
 
-    // Configurar memoria compartida
-    int idMemoria = shm_open(NOMBRE_MEMORIA, O_CREAT | O_RDWR, 0600);
-    if (idMemoria == -1) {
-        cerr << "Error al crear la memoria compartida." << endl;
+    //verifico sus aperturas
+    if (shmLetra == -1 || shmNick == -1 || shmResp == -1) {
+        cerr << "Servidor no iniciado o error accediendo a memoria compartida." << endl;
         return 1;
     }
+    //defino tamaños de las memorias
+    ftruncate(shmLetra, sizeof(char));
+    ftruncate(shmNick, 20);
+    ftruncate(shmResp, sizeof(RespuestaServidor));
 
-    if (ftruncate(idMemoria, sizeof(char)) == -1) {
-        cerr << "Error al definir el tamaño de la memoria compartida." << endl;
-        shm_unlink(NOMBRE_MEMORIA);
-        return 1;
+    //mapeamos las memorias compartidas
+    letraADivinar = (char*)mmap(NULL, sizeof(char), PROT_WRITE, MAP_SHARED, shmLetra, 0);
+    nicknameCliente = (char*)mmap(NULL, 20, PROT_WRITE, MAP_SHARED, shmNick, 0);
+    respuesta = (RespuestaServidor*)mmap(NULL, sizeof(RespuestaServidor), PROT_READ, MAP_SHARED, shmResp, 0);
+
+    //abro semaforos
+    semServidor = sem_open(NOMBRE_SEMAFORO_SERVIDOR, 0);
+    semCliente  = sem_open(NOMBRE_SEMAFORO_CLIENTE, 0);
+
+    //verifico memorias y semaforos
+    if (!letraADivinar || !nicknameCliente || !respuesta || semServidor == SEM_FAILED || semCliente == SEM_FAILED) {
+        cerr << "Error al mapear recursos o abrir semáforos." << endl;
+        liberarRecursos(); return 1;
     }
-
-    char *letraADivinar = (char *)mmap(NULL, sizeof(char), PROT_READ | PROT_WRITE, MAP_SHARED, idMemoria, 0);
-    if (letraADivinar == MAP_FAILED) {
-        cerr << "Error al mapear la memoria compartida." << endl;
-        shm_unlink(NOMBRE_MEMORIA);
-        return 1;
-    }
-
-    int idMemoriaNickname = shm_open("miMemoriaNickname", O_CREAT | O_RDWR, 0600);
-    if (idMemoriaNickname == -1) {
-        cerr << "Error al crear la memoria para nickname." << endl;
-        munmap(letraADivinar, sizeof(char));
-        shm_unlink(NOMBRE_MEMORIA);
-        return 1;
-    }
-
-    if (ftruncate(idMemoriaNickname, 20 * sizeof(char)) == -1) {
-        cerr << "Error al definir el tamaño de la memoria para nickname." << endl;
-        shm_unlink("miMemoriaNickname");
-        munmap(letraADivinar, sizeof(char));
-        shm_unlink(NOMBRE_MEMORIA);
-        return 1;
-    }
-
-    char *nicknameCliente = (char *)mmap(NULL, 20 * sizeof(char), PROT_READ | PROT_WRITE, MAP_SHARED, idMemoriaNickname, 0);
-    if (nicknameCliente == MAP_FAILED) {
-        cerr << "Error al mapear la memoria para nickname." << endl;
-        shm_unlink("miMemoriaNickname");
-        munmap(letraADivinar, sizeof(char));
-        shm_unlink(NOMBRE_MEMORIA);
-        return 1;
-    }
-
-    int idMemoriaRespuesta = shm_open(NOMBRE_MEMORIA_RESPUESTA, O_CREAT | O_RDWR, 0600);
-    if (idMemoriaRespuesta == -1) {
-        cerr << "Error al crear la memoria para respuesta." << endl;
-        munmap(nicknameCliente, 20 * sizeof(char));
-        shm_unlink("miMemoriaNickname");
-        munmap(letraADivinar, sizeof(char));
-        shm_unlink(NOMBRE_MEMORIA);
-        return 1;
-    }
-
-    if (ftruncate(idMemoriaRespuesta, sizeof(RespuestaServidor)) == -1) {
-        cerr << "Error al definir el tamaño de la memoria para respuesta." << endl;
-        shm_unlink(NOMBRE_MEMORIA_RESPUESTA);
-        munmap(nicknameCliente, 20 * sizeof(char));
-        shm_unlink("miMemoriaNickname");
-        munmap(letraADivinar, sizeof(char));
-        shm_unlink(NOMBRE_MEMORIA);
-        return 1;
-    }
-
-    RespuestaServidor *respuesta = (RespuestaServidor *)mmap(NULL, sizeof(RespuestaServidor), PROT_READ | PROT_WRITE, MAP_SHARED, idMemoriaRespuesta, 0);
-    if (respuesta == MAP_FAILED) {
-        cerr << "Error al mapear la memoria para respuesta." << endl;
-        shm_unlink(NOMBRE_MEMORIA_RESPUESTA);
-        munmap(nicknameCliente, 20 * sizeof(char));
-        shm_unlink("miMemoriaNickname");
-        munmap(letraADivinar, sizeof(char));
-        shm_unlink(NOMBRE_MEMORIA);
-        return 1;
-    }
-
-    // Configurar semáforos
-    sem_t *semaforoServidor = sem_open(NOMBRE_SEMAFORO_SERVIDOR, O_CREAT, 0600, 0);
-    if (semaforoServidor == SEM_FAILED) {
-        cerr << "Error al crear semáforo servidor" << endl;
-        munmap(respuesta, sizeof(RespuestaServidor));
-        munmap(nicknameCliente, 20 * sizeof(char));
-        munmap(letraADivinar, sizeof(char));
-        shm_unlink(NOMBRE_MEMORIA_RESPUESTA);
-        shm_unlink("miMemoriaNickname");
-        shm_unlink(NOMBRE_MEMORIA);
-        sem_unlink(NOMBRE_SEMAFORO_SERVIDOR);
-        return 1;
-    }
-
-    int pepe;
-    sem_getvalue(semaforoServidor,&pepe);
-    cout << "sem server ya inicializado en: " << pepe << endl;
-
-    sem_t *semaforoCliente = sem_open(NOMBRE_SEMAFORO_CLIENTE, O_CREAT, 0600, 0);
-    if (semaforoCliente == SEM_FAILED) {
-        cerr << "Error al crear semáforo cliente" << endl;
-        sem_close(semaforoServidor);
-        munmap(respuesta, sizeof(RespuestaServidor));
-        munmap(nicknameCliente, 20 * sizeof(char));
-        munmap(letraADivinar, sizeof(char));
-        shm_unlink(NOMBRE_MEMORIA_RESPUESTA);
-        shm_unlink("miMemoriaNickname");
-        shm_unlink(NOMBRE_MEMORIA);
-        sem_unlink(NOMBRE_SEMAFORO_SERVIDOR);
-        sem_unlink(NOMBRE_SEMAFORO_CLIENTE);
-        return 1;
-    }
-
-    // Copiar nickname a memoria compartida
-    strncpy(nicknameCliente, argv[2], 20);
+    //copio nombre cliente
+    strncpy(nicknameCliente, nick.c_str(), 19);
     nicknameCliente[19] = '\0';
-    cout << "Conectando al servidor con nickname: " << nicknameCliente << endl;
+    //arranca el juego
+    cout << "Conectado como: " << nicknameCliente << endl;
+    sem_post(semServidor); // Avisar al servidor que estamos listos
+    sem_wait(semCliente); // Esperar inicio
 
-    // Notificar al servidor
-    cout << "mando sem server" << endl;
-    sem_post(semaforoServidor);
-
-    // Esperar inicio de partida
-    cout << "Esperando que el servidor inicie la partida..." << endl;
-    sem_wait(semaforoCliente);
-    cout << "Partida iniciada por el servidor." << endl;
-
-    cout << "Partida iniciada. Ingrese letras para adivinar la frase." << endl;
-    cout << "Escriba 'exit' para salir en cualquier momento." << endl;
-
-    bool partidaActiva = true;
-
-    while(partidaActiva) {
-        cout << "Ingrese una letra: ";
-        string entrada;
+    cout << "Juego iniciado. Escriba letras (o 'exit' para salir)." << endl;
+    string entrada;
+    while (true) {
+        cout << "Letra: ";
         cin >> entrada;
 
-        if(entrada == "exit") {
-            cout << "Saliendo del juego..." << endl;
+        if (entrada == "exit") {
+            *letraADivinar = '#'; // Marca de salida
+            sem_post(semServidor);
             break;
         }
 
-        if(entrada.length() != 1) {
-            cout << "Por favor ingrese solo una letra." << endl;
+        if (entrada.length() != 1 || !isalpha(entrada[0])) {
+            cout << "Ingrese una sola letra válida." << endl;
             continue;
         }
 
-        // Enviar letra al servidor
         *letraADivinar = entrada[0];
-        sem_post(semaforoServidor);
+        sem_post(semServidor);
+        sem_wait(semCliente);
 
-        // Esperar respuesta del servidor
-        sem_wait(semaforoCliente);
-
-        // Procesar respuesta
-        if(respuesta->letraCorrecta) {
-            cout << "¡Correcto! La letra está en la frase." << endl;
-        } else {
-            cout << "La letra no está en la frase." << endl;
-        }
-
+        cout << (respuesta->letraCorrecta ? "Correcto." : "Incorrecto.") << endl;
         cout << "Intentos restantes: " << respuesta->intentosRestantes << endl;
 
-        if(respuesta->partidaTerminada) {
-            if(respuesta->intentosRestantes == 0) {
-                cout << "¡Se agotaron los intentos! Fin de la partida." << endl;
-            } else {
-                cout << "¡Felicidades! ¡Has adivinado la frase!" << endl;
-            }
-            partidaActiva = false;
-            
-            // Notificar al servidor que recibimos el fin de partida
-            sem_post(semaforoServidor);
+        if (respuesta->partidaTerminada) {
+            cout << (respuesta->intentosRestantes ? "Ganaste!" : "Perdiste.") << endl;
+            sem_post(semServidor); // Confirmar fin
+            break;
         }
     }
 
-    // Liberar recursos
-    sem_close(semaforoServidor);
-    sem_close(semaforoCliente);
-    munmap(respuesta, sizeof(RespuestaServidor));
-    munmap(nicknameCliente, 20 * sizeof(char));
-    munmap(letraADivinar, sizeof(char));
-    close(idMemoriaRespuesta);
-    close(idMemoriaNickname);
-    close(idMemoria);
-    shm_unlink(NOMBRE_MEMORIA_RESPUESTA);
-    shm_unlink("miMemoriaNickname");
-    shm_unlink(NOMBRE_MEMORIA);
-    sem_unlink(NOMBRE_SEMAFORO_SERVIDOR);
-    sem_unlink(NOMBRE_SEMAFORO_CLIENTE);
-    cout << "Cliente finalizado correctamente." << endl;
+    liberarRecursos();
     return 0;
 }
+
