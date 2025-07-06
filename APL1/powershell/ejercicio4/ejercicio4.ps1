@@ -82,7 +82,8 @@ function Mostrar-Uso {
 
 # Función para lanzar el demonio en segundo plano
 function Lanzar-Demonio {
-    Start-Process -FilePath "pwsh" -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$SELF_PATH`" --daemon -directorio `"$directorio`" -salida `"$salida`" -cantidad $cantidad"
+    $cmd = "nohup pwsh -NoProfile -ExecutionPolicy Bypass -File '$SELF_PATH' --daemon -directorio '$directorio' -salida '$salida' -cantidad $cantidad > /dev/null 2>&1 &"
+    & /bin/sh -c $cmd
     Write-Output "Demonio lanzado para el directorio $directorio"
     exit 0
 }
