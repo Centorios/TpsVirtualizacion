@@ -88,6 +88,7 @@ int main(int argc, char* argv[]) {
         cerr << "Nickname inválido." << endl;
         return 1;
     }
+
     //abro memorias compartidas
     shmLetra = shm_open(NOMBRE_MEMORIA, O_RDWR, 0600);
     shmNick  = shm_open(NOMBRE_MEMORIA_NICKNAME, O_RDWR, 0600);
@@ -130,7 +131,7 @@ int main(int argc, char* argv[]) {
     while (true) {
         if (respuesta->partidaTerminada) {
             cout << (respuesta->intentosRestantes ? "Ganaste!" : "Perdiste.") << endl;
-            //sem_post(semServidor); // Confirmar fin
+            //sem_post(semServidor); // Confirmar fin 
             break;
         }
         cout << "Letra: ";

@@ -236,7 +236,7 @@ int main(int argc, char *argv[]) {
             sem_post(semCliente);
 
             if (respuesta->partidaTerminada) {
-                sem_wait(semServidor);
+                //sem_wait(semServidor);
                 break;
             }
 
