@@ -33,6 +33,12 @@ typedef struct {
 
 } SharedMemory;
 
+typedef struct {
+	char nickname[30];
+	int puntaje;
+	int tiempoJuego; // en segundos	
+} Jugador;
+
 
 bool termProcess = TRUE;
 
@@ -56,7 +62,8 @@ void sigusrHandler(int signal){
 }
 
 //se genera un ranking de los jugadores por puntaje y por tiempo de juego mostrandolo en pantalla
-void generarRanking(SharedMemory* memoriaCompartida){
+void generarRanking(Jugador *jugadores){
+	
 
 }
 void mostrarRanking(){
@@ -242,6 +249,8 @@ if(servidor == SEM_FAILED){
 	}
 	exit(1);
 }
+Jugador jugadores[50]; //arreglo de jugadores, maximo 50 jugadores
+jugadores[0].puntaje = 0; //inicializo el primer jugador con puntaje 0
 
 //lógica del servidor 
 while(1){
@@ -301,7 +310,7 @@ while(1){
 
 }
 
-
+//limpiar los recursos cuando se termine el servidor
 
 
 
