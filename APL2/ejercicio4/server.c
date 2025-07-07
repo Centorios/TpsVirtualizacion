@@ -46,7 +46,7 @@ void devolverPalabraJuego(char *destino, char *original) {
 }
 
 void sigusrHandler(int signal){
-	//necesito una variable para poder finalizar al servidor
+	//necesito una variable para poder finalizar al servidor. completar
 	switch(signal){
 		case SIGUSR1:
 			printf("SIGUSR1 recibido, finalizando cliente...\n");
@@ -54,6 +54,18 @@ void sigusrHandler(int signal){
 			printf("SIGUSR2 recibido, finalizando cliente...\n");
 	}
 }
+
+//se genera un ranking de los jugadores por puntaje y por tiempo de juego mostrandolo en pantalla
+void generarRanking(SharedMemory* memoriaCompartida){
+
+}
+void mostrarRanking(){
+	printf("Ranking de jugadores:\n");
+	//acá se debe implementar la logica para msotrar el ranking de jugadores
+}
+	
+
+
 
 
 int main(int argc, char *argv[]){
