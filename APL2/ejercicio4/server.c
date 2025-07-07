@@ -72,8 +72,10 @@ while(i < argc)
 	if(argv[i] != NULL) {
 	        if(strcmp(argv[i],"-help") == 0 || strcmp(argv[i],"-h") == 0){
 			//printf("-puerto o -p seguido del numero de puerto\n");
-			printf("-cantidad o -u seguido del numero maximo de usuarios que maneja el server\n");
-			printf("-archivo o -a seguido del path donde se encuentra el archivo con las palabras\n");
+			printf("Opciones :\n");
+			printf("--help o -h para mostrar la ayuda\n");)
+			printf("--cantidad o -u seguido del numero maximo de usuarios que maneja el server\n");
+			printf("--archivo o -a seguido del path donde se encuentra el archivo con las palabras\n");
 			return 0;
 	        }
 

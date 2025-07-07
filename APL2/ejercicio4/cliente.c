@@ -47,7 +47,10 @@ int main(int argc, char *argv[]){
             if (strcmp(argv[i], "-help") == 0 || strcmp(argv[i], "-h") == 0){
                 //printf("-puerto o -p para indicar el peurto del servidor de destino\n");
                 //printf("-servidor o -s para indicar la ipv4 del servidor de destino\n");
-                printf("-nickname o -n para indicar el nickname del cliente\n");
+                printf("Opciones :\n");
+                printf("--nickname o -n para indicar el nickname del cliente\n");
+                printf("--help o -h para mostrar esta ayuda\n");
+                printf("Ejemplo: ./cliente -n nickName\n");
                 return 0;
             }
 
