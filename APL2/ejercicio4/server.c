@@ -15,6 +15,7 @@ Integrantes del grupo:
 #include <semaphore.h>
 #include <sys/mman.h>
 #include <fcntl.h>
+#include <errno.h>
 
 #define FALSE 0
 #define TRUE 1
@@ -35,10 +36,6 @@ typedef struct {
 
 bool termProcess = TRUE;
 
-void sigusrHandler(){
-	//preparar el manejador para displayear el raking en pantalla
-	return 0;
-}
 
 void devolverPalabraJuego(char *destino, char *original) {
     int i;
@@ -49,6 +46,7 @@ void devolverPalabraJuego(char *destino, char *original) {
 }
 
 void sigusrHandler(int signal){
+	//necesito una variable para poder finalizar al servidor
 	switch(signal){
 		case SIGUSR1:
 			printf("SIGUSR1 recibido, finalizando cliente...\n");
@@ -79,21 +77,20 @@ while(i < argc)
 {
 	if(argv[i] != NULL) {
 	        if(strcmp(argv[i],"-help") == 0 || strcmp(argv[i],"-h") == 0){
-			//printf("-puerto o -p seguido del numero de puerto\n");
 			printf("Opciones :\n");
-			printf("--help o -h para mostrar la ayuda\n");)
+			printf("--help o -h para mostrar la ayuda\n");
 			printf("--cantidad o -u seguido del numero maximo de usuarios que maneja el server\n");
 			printf("--archivo o -a seguido del path donde se encuentra el archivo con las palabras\n");
 			return 0;
 	        }
 
-		if(strcmp(argv[i],"-cantidad") == 0 || strcmp(argv[i],"-c") ==0){
+		if(strcmp(argv[i],"--cantidad") == 0 || strcmp(argv[i],"-c") ==0){
 			cantidad = atoi(argv[i+1]);
 			i++;
 			b_cantidad = TRUE;
 		}
 
-		if(strcmp(argv[i],"-archivo") == 0 || strcmp(argv[i],"-a") == 0) {
+		if(strcmp(argv[i],"--archivo") == 0 || strcmp(argv[i],"-a") == 0) {
 			filePath = argv[i+1];
 			i++;
 			b_file = TRUE;
@@ -150,7 +147,18 @@ SharedMemory* memoriaCompartida;
 int sharedMemInt = shm_open("SHARED_MEM", O_RDWR | O_CREAT, 0600);
 
 if(sharedMemInt == -1){
-	printf("error abriendo la memoria compartida\n");
+	perror("shm_open"); // Imprime el error
+    if (errno == EACCES) {
+        printf("Error: Permisos insuficientes\n");
+    } else if (errno == ENOENT) {
+        printf("Error: Objeto no encontrado\n");
+    } else if (errno == EEXIST) {
+        printf("Error: El objeto ya existe.\n");
+    } else if (errno == EINVAL){
+        printf("Error: Nombre no válido\n");
+    }else if (errno == EMFILE || errno == ENFILE){
+        printf("Error: Demasiados descriptores o archivos abiertos.\n");
+    }
 	exit(1);
 }
 
@@ -166,28 +174,64 @@ strcpy(memoriaCompartida->estadoPartida,"00000000");
 close(sharedMemInt);
 
 sem_t* mutex = sem_open("MUTEX",O_CREAT,0600,1);
-
+//no se pudo abrir el semaforo MUTEX
 if(mutex == SEM_FAILED){
-	printf("error abriendo sem mutex\n");
+	perror("error abriendo sem mutex");
+	if(errno == EEXIST){
+		printf("el semaforo MUTEX ya existe, no se puede abrir\n");
+	}else if(errno== EACCES){
+		printf("el semaforo MUTEX no se puede abrir, no tengo permisos\n");
+	}else{
+		printf("error desconocido abriendo sem MUTEX\n");
+	}
+
 	exit(1);
 }
 
 
-sem_t* cliente = sem_open("CLIENTE",O_CREAT,0600,0);
 
+
+sem_t* cliente = sem_open("CLIENTE",O_CREAT,0600,0);
+//no se pudo abrir el semaforo CLIENTE
 if(cliente == SEM_FAILED){
-	printf("error abriendo sem cliente\n");
+	perror("error abriendo sem cliente");
+	if(errno == EEXIST){
+		printf("el semaforo CLIENTE ya existe, no se puede abrir\n");
+	}else if(errno== EACCES){
+		printf("el semaforo CLIENTE no se puede abrir, no tengo permisos\n");
+	}else{
+		printf("error desconocido abriendo sem CLIENTE\n");
+	}
 	exit(1);
 }
 
 sem_t* servidor = sem_open("SERVIDOR",O_CREAT,0600,0);
-
+//no se pudo abrir el semaforo SERVIDOR
 if(servidor == SEM_FAILED){
-	printf("error abriendo sem servidor\n");
+	perror("error abriendo sem servidor");
+if(errno == EEXIST){
+	printf("el semaforo SERVIDOR ya existe, no se puede abrir\n");
+}else if(errno== EACCES){
+	printf("el semaforo SERVIDOR no se puede abrir, no tengo permisos\n");
+}else{
+	printf("error desconocido abriendo sem SERVIDOR\n");
+}
 	exit(1);
 }
 
+if(servidor == SEM_FAILED){
+	perror("error abriendo sem servidor");
+	if(errno == EEXIST){
+		printf("el semaforo SERVIDOR ya existe, no se puede abrir\n");
+	}else if(errno== EACCES){
+		printf("el semaforo SERVIDOR no se puede abrir, no tengo permisos\n");
+	}else{
+		printf("error desconocido abriendo sem SERVIDOR\n");
+	}
+	exit(1);
+}
 
+//lógica del servidor 
 while(1){
 	printf("esperando al cliente\n");
 	int indice = rand() % cantidadFrases;

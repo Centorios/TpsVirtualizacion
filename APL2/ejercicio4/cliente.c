@@ -78,7 +78,18 @@ SharedMemory* memoriaCompartida;
 int sharedMemInt = shm_open("SHARED_MEM", O_RDWR, 0600);
 
 if(sharedMemInt == -1){
-	printf("ertror abriendo la memoria compartida\n");
+	perror("shm_open"); // Imprime el error
+    if (errno == EACCES) {
+        printf("Error: Permisos insuficientes\n");
+    } else if (errno == ENOENT) {
+        printf("Error: Objeto no encontrado\n");
+    } else if (errno == EEXIST) {
+        printf("Error: El objeto ya existe.\n");
+    } else if (errno == EINVAL){
+        printf("Error: Nombre no válido\n");
+    }else if (errno == EMFILE || errno == ENFILE){
+        printf("Error: Demasiados descriptores o archivos abiertos.\n");
+    }
 	exit(1);
 }
 
