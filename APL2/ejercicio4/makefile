@@ -1,25 +1,20 @@
-# Compilador
-CXX = g++
-# Opciones de compilación
-CXXFLAGS = -Wall -Wextra -std=c++14 -g
+CC = gcc
+CFLAGS = -Wall -Wextra -O2
 
-# Nombres de los ejecutables
-SERVER = servidor
-CLIENT = cliente
+CLIENT_SRC = cliente.c
+SERVER_SRC = server.c
 
-# Regla por defecto (compila ambos programas)
-all: $(SERVER) $(CLIENT)
-
-# Regla para compilar el servidor
-$(SERVER): servidor.cpp
-	$(CXX) $(CXXFLAGS) -o $@ $^
-
-# Regla para compilar el cliente
-$(CLIENT): cliente.cpp
-	$(CXX) $(CXXFLAGS) -o $@ $^
-
-# Limpiar archivos generados
-clean:
-	rm -f $(SERVER) $(CLIENT)
+CLIENT_BIN = cliente
+SERVER_BIN = server
 
 .PHONY: all clean
+
+all: $(CLIENT_BIN) $(SERVER_BIN)
+
+$(CLIENT_BIN): $(CLIENT_SRC)
+	$(CC) $(CFLAGS) -o $(CLIENT_BIN) $(CLIENT_SRC)
+
+$(SERVER_BIN): $(SERVER_SRC) $(CLIENT_HANDLER_SRC) $(PARTIDA_SRC)
+	$(CC) $(CFLAGS) -o $(SERVER_BIN) $(SERVER_SRC) $(CLIENT_HANDLER_SRC) $(PARTIDA_SRC) $(LDFLAGS)
+clean:
+	rm -f $(CLIENT_BIN) $(SERVER_BIN)
