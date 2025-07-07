@@ -48,12 +48,20 @@ void devolverPalabraJuego(char *destino, char *original) {
     destino[i] = '\0';
 }
 
-
+void sigusrHandler(int signal){
+	switch(signal){
+		case SIGUSR1:
+			printf("SIGUSR1 recibido, finalizando cliente...\n");
+		case SIGUSR2:
+			printf("SIGUSR2 recibido, finalizando cliente...\n");
+	}
+}
 
 
 int main(int argc, char *argv[]){
-signal(SIGINT,sigusrHandler);
+signal(SIGINT,SIG_IGN);
 signal(SIGUSR1,sigusrHandler);
+signal(SIGUSR2,sigusrHandler);
 
 /////////////////////////////////////////////////////////////////////
 if(argc > 7) {

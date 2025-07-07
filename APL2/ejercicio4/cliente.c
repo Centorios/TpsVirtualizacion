@@ -32,6 +32,8 @@ typedef struct {
 
 int main(int argc, char *argv[]){
 
+    signal(SIGINT, SIG_IGN);
+
     ////////////////////////////////////////////////////////////////////////////
     if (argc > 7){
         printf("parametros invalidos\n");
