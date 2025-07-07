@@ -117,6 +117,8 @@ if(servidor == SEM_FAILED){
         exit(1);
 }
 
+//se debe validar que un cliente no se conecte si no hay servidor activo
+//falta la logica acá
 sem_post(cliente); //me conecto a server
 
 while(memoriaCompartida->intentos > 0){
