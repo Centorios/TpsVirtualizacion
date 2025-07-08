@@ -115,7 +115,7 @@ int main(int argc, char *argv[])
 	signal(SIGUSR2, sigusrHandler);
 
 	/////////////////////////////////////////////////////////////////////
-	if (argc > 7)
+	if (argc > 5)
 	{
 		printf("parametros invalidos\n");
 		return 1;
@@ -135,8 +135,9 @@ int main(int argc, char *argv[])
 			{
 				printf("Opciones :\n");
 				printf("--help o -h para mostrar la ayuda\n");
-				printf("--cantidad o -u seguido del numero maximo de usuarios que maneja el server\n");
+				printf("--cantidad o -c seguido del numero maximo de usuarios que maneja el server\n");
 				printf("--archivo o -a seguido del path donde se encuentra el archivo con las palabras\n");
+				printf("Ejemplo: ./server -c 5 -a ./archivos/prueba.txt\n");
 				return 0;
 			}
 

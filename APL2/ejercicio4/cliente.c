@@ -30,6 +30,7 @@ typedef struct
     char estadoPartida[30];
 
 } SharedMemory;
+ 
 
 int main(int argc, char *argv[])
 {
@@ -37,9 +38,10 @@ int main(int argc, char *argv[])
     signal(SIGINT, SIG_IGN);
 
     ////////////////////////////////////////////////////////////////////////////
-    if (argc > 7)
+    //verifico que los parametros sean correctos
+    if (argc < 3)
     {
-        printf("parametros invalidos\n");
+        printf("faltan parametros requeridos\n");
         return 1;
     }
 
@@ -52,22 +54,21 @@ int main(int argc, char *argv[])
         if (argv[i] != NULL)
         {
             if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0)
-            {
-                // printf("-puerto o -p para indicar el peurto del servidor de destino\n");
-                // printf("-servidor o -s para indicar la ipv4 del servidor de destino\n");
+            {  //muestra ayuda para el cliente
                 printf("Opciones :\n");
                 printf("--nickname o -n para indicar el nickname del cliente\n");
                 printf("--help o -h para mostrar esta ayuda\n");
                 printf("Ejemplo: ./cliente -n nickName\n");
                 return 0;
             }
-
+            //copia el nickname del cliente
             if (strcmp(argv[i], "-nickname") == 0 || strcmp(argv[i], "-n") == 0)
             {
                 strcpy(nickName, argv[i + 1]);
                 i++;
                 b_nickname = TRUE;
             }
+        
         }
 
         i++;
@@ -87,7 +88,7 @@ int main(int argc, char *argv[])
 
     if (sharedMemInt == -1)
     {
-        perror("shm_open"); // Imprime el error
+        perror("Error abriendo memoria compartida"); // Imprime el error
         if (errno == EACCES)
         {
             printf("Error: Permisos insuficientes\n");
@@ -95,7 +96,7 @@ int main(int argc, char *argv[])
         else if (errno == ENOENT)
         {
             printf("Error: Objeto no encontrado\n");
-            printf("Asegúrate de que el servidor esté corriendo antes de iniciar el cliente.\n");
+            printf("Asegurate de que el servidor esté corriendo antes de iniciar.\n");
             exit(1);
         }
         else if (errno == EEXIST)
