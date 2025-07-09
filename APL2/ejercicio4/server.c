@@ -465,6 +465,7 @@ TAG2:
 				goto TAG;
 			}
 		}
+		strcpy(memoriaCompartida->estadoPartida, "exit");
 		sem_wait(finalizacion);
 		if (!finalizarPartida)
 		{
