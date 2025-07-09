@@ -61,18 +61,13 @@ void sigusrHandler(int signal)
 	switch (signal)
 	{
 	case SIGUSR1:
-		printf("SIGUSR1 recibido, finalizando cliente...\n");
-		if(estadoPartida){
-			printf("El cliente está en una partida, no se puede finalizar ahora.\n");
-			finalizarPartida = TRUE;
-		} else {
-			printf("El cliente no está en una partida, se puede finalizar.\n");
-			finalizarPartida=TRUE;
-			termProcess = TRUE;
-		}
-	case SIGUSR2:
-		printf("SIGUSR2 recibido, finalizando cliente...\n");
+		printf("SIGUSR1 recibido, cerrando servidor...\n");
+		finalizarPartida=TRUE;
 		termProcess = TRUE;
+		break;
+	case SIGUSR2:
+		printf("SIGUSR2 recibido, esperando a finalizar la partida para cerrar el servidor...\n");
+		finalizarPartida = TRUE;
 	}
 }
 
@@ -256,9 +251,31 @@ int main(int argc, char *argv[])
 		{
 			printf("error desconocido abriendo sem MUTEX\n");
 		}
-
+		
 		exit(1);
 	}
+	
+	sem_t *finalizacion =sem_open("FINALIZACION",O_CREAT,0600,1);
+
+	if (finalizacion == SEM_FAILED)
+	{
+		perror("error abriendo sem finalizacion");
+		if (errno == EEXIST)
+		{
+			printf("el semaforo FINALIZACION ya existe, no se puede abrir\n");
+		}
+		else if (errno == EACCES)
+		{
+			printf("el semaforo FINALIZACION no se puede abrir, no tengo permisos\n");
+		}
+		else
+		{
+			printf("error desconocido abriendo sem FINALIZACION\n");
+		}
+		exit(1);
+	}
+
+
 
 	sem_t *cliente = sem_open("CLIENTE", O_CREAT, 0600, 0);
 	// no se pudo abrir el semaforo CLIENTE
@@ -322,7 +339,12 @@ int main(int argc, char *argv[])
 	
 	int cantJugadores = 0;
 
+	struct timespec ts;
+	int valorSemSer;
+
+
 	// lógica del servidor
+TAG2:
 	while (!termProcess)
 	{
 		printf("esperando al cliente\n");
@@ -335,7 +357,13 @@ int main(int argc, char *argv[])
 			break;
 		}
 		
-		sem_wait(cliente); // espero que se conecte 1 cliente
+		//sem_wait(cliente); // espero que se conecte 1 cliente
+		clock_gettime(CLOCK_REALTIME, &ts);
+    	ts.tv_sec += 5;
+
+		if (sem_timedwait(cliente, &ts) == -1) {
+        	goto TAG2;
+		}
 
 		printf("entró el cliente %s\n", memoriaCompartida->nickname);
 
@@ -346,16 +374,26 @@ int main(int argc, char *argv[])
 		jugadores[cantJugadores].tiempoJuego = 0;
 		strcpy(jugadores[cantJugadores].nickname, memoriaCompartida->nickname);
 		
-
 		estadoPartida = TRUE; // para el sigusr1
 
 		time_t tiempoInicio = time(NULL);
 
 	TAG:
-		while (memoriaCompartida->intentos > 0 & !termProcess)
+		while (memoriaCompartida->intentos > 0 && !termProcess)
 		{
-			sem_post(servidor); // le aviso al cliente que ya estoy
-			sem_wait(cliente);	// espero que el cliente haya metido una palabra
+			sem_getvalue(servidor,&valorSemSer);
+			if(!valorSemSer)
+			{sem_post(servidor);} // le aviso al cliente que ya estoy
+
+			clock_gettime(CLOCK_REALTIME, &ts);
+    		ts.tv_sec += 5;
+
+			if (sem_timedwait(cliente, &ts) == -1) {
+        		goto TAG;
+			}
+
+
+			//sem_wait(cliente);	// espero que el cliente haya metido una palabra
 			
 
 			if (strcmp(memoriaCompartida->estadoPartida, "exit") == 0)
@@ -367,7 +405,7 @@ int main(int argc, char *argv[])
 				printf("Puntaje final: %d\n", jugadores[cantJugadores].puntaje);
 				printf("Tiempo de juego: %d segundos\n", tiempoJuego);
 				jugadores[cantJugadores].tiempoJuego = tiempoJuego;
-				strcpy(memoriaCompartida->estadoPartida, "00000000");
+				//strcpy(memoriaCompartida->estadoPartida, "00000000");
 				
 				//sem_post(mutex);
 				break;
@@ -408,12 +446,14 @@ int main(int argc, char *argv[])
 
 				tiempoInicio = time(NULL);
 				
-				strcpy(memoriaCompartida->estadoPartida, "00000000");
+				//strcpy(memoriaCompartida->estadoPartida, "00000000");
 
 				devolverPalabraJuego(memoriaCompartida->palabraCamuflada, memoriaCompartida->palabra);
 				memoriaCompartida->intentos = cantidad;
 				printf("Nueva palabra: %s\n", memoriaCompartida->palabraCamuflada);
 				printf("La palabra nueva es: %s\n", memoriaCompartida->palabra);
+				if(finalizarPartida)
+					{break;}
 				goto TAG;
 			}
 		}
@@ -425,6 +465,9 @@ int main(int argc, char *argv[])
 		memoriaCompartida->intentos = cantidad;
 		estadoPartida = FALSE;
 	}
+	strcpy(memoriaCompartida->estadoPartida, "exit");
+
+	sem_wait(finalizacion);
 
 	generarRanking(jugadores, cantJugadores);
 	mostrarRanking(jugadores);
@@ -433,9 +476,11 @@ int main(int argc, char *argv[])
 	sem_close(mutex);
 	sem_close(cliente);
 	sem_close(servidor);
+	sem_close(finalizacion);
 	sem_unlink("MUTEX");
 	sem_unlink("CLIENTE");
 	sem_unlink("SERVIDOR");
+	sem_unlink("FINALIZACION");
 	munmap(memoriaCompartida, sizeof(SharedMemory));
 	close(sharedMemInt);
 	shm_unlink("SHARED_MEM");

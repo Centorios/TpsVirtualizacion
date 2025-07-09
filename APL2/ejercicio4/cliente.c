@@ -140,6 +140,14 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
+    sem_t *finalizacion = sem_open("FINALIZACION", O_RDWR, 0600, 0);
+
+    if (servidor == SEM_FAILED)
+    {
+        printf("error abriendo sem finalizacion\n");
+        exit(1);
+    }
+
     sem_t *mutex = sem_open("MUTEX", O_CREAT, 0600, 1);
 	// no se pudo abrir el semaforo MUTEX
 	if (mutex == SEM_FAILED)
@@ -167,7 +175,7 @@ int main(int argc, char *argv[])
 
     sem_post(cliente); // me conecto a server
 
-    while (memoriaCompartida->intentos > 0)
+    while (memoriaCompartida->intentos > 0 && strcmp(memoriaCompartida->estadoPartida,"exit"))
     {
         sem_wait(servidor); // espero a que el server haya seteado todo
 
@@ -199,6 +207,8 @@ int main(int argc, char *argv[])
 
         sem_post(cliente); // le aviso a server que meti una palabra
     }
+
+    sem_post(finalizacion);
 
     return 0;
 }
