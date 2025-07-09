@@ -6,6 +6,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <csignal>
 
 #define NOMBRE_FIFO "miFifo"
 
@@ -102,6 +103,7 @@ bool servidorDisponible()
 
 int main(int argc, char *argv[])
 {
+
     // verifico si faltan parametros o no se paso ninguno
     if (argc < 3)
     {

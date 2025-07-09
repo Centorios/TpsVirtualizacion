@@ -54,10 +54,19 @@ int main(int argc, char *argv[])
     signal(SIGTERM, sigtermHandler);
 
     ////////////////////////////////////////////////////////////////////////////
+    if (argc == 2 && (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0))
+	{
+		printf("Opciones :\n");
+		printf("--help o -h para mostrar la ayuda\n");
+		printf("--name o -n seguido del nombre del cliente\n");
+		printf("Ejemplo: ./cliente -n prueba o ./cliente -name prueba\n");
+		return 0;
+	}
+
     // verifico que los parametros sean correctos
     if (argc < 3)
     {
-        printf("faltan parametros requeridos\n");
+        printf("Faltan parametros requeridos\n");
         return 1;
     }
 

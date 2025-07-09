@@ -32,7 +32,17 @@ void mostrarAyuda() {
 }
 
 
+// Función para limpiar recursos al recibir señales
+void limpiarRecursos(int signo) {
+    unlink(NOMBRE_FIFO);
+    cout << "\nRecursos liberados. Servidor finalizado por señal (" << signo << ")." << endl;
+    exit(0);
+}
+
 int main(int argc, char *argv[]) {
+
+    signal(SIGINT, limpiarRecursos);
+    signal(SIGTERM, limpiarRecursos);
 
     // verifico si faltan parametros o no se paso ninguno
     if(argc < 3){
