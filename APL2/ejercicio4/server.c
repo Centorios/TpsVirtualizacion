@@ -146,6 +146,7 @@ void limpiarRecursos()
 void sigtermHandler()
 {
 	printf("SIGTERM recibido, cerrando servidor...\n");
+	strcpy(memoriaCompartida->estadoPartida, "exit");
 	finalizarPartida = TRUE;
 	termProcess = TRUE;
 	limpiarRecursos();
@@ -453,7 +454,9 @@ TAG2:
 			goto TAG2;
 		}
 
-		printf("Entró el cliente %s\n", memoriaCompartida->nickname);
+		if (strlen(memoriaCompartida->nickname) > 0) {
+    		printf("Entró el cliente %s\n", memoriaCompartida->nickname);
+		}
 
 		// sem_wait(finalizacion);
 
@@ -563,7 +566,7 @@ TAG2:
 		}
 		strcpy(memoriaCompartida->nickname, "");  // Reiniciar nickname.
 		strcpy(memoriaCompartida->estadoPartida, "00000000");  // Estado neutral.
-		
+		sem_init(cliente, 1, 0);
 	}
 
 	strcpy(memoriaCompartida->estadoPartida, "finalizando");
