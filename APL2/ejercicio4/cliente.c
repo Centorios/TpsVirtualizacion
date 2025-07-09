@@ -81,6 +81,46 @@ int main(int argc, char *argv[])
 
     ////////////////////////////////////////////////////////////////////////////
 
+        ////////////////////////////////////////////////////////////////////////////
+    // Semáforo para asegurar que solo un cliente se ejecute a la vez
+    sem_t *cliente_lock = sem_open("CLIENTE_LOCK", O_CREAT | O_EXCL, 0600, 1);
+
+    if (cliente_lock == SEM_FAILED)
+    {
+        if (errno == EEXIST)
+        {
+            // El semáforo ya existe, intentamos abrirlo
+            cliente_lock = sem_open("CLIENTE_LOCK", 0);
+            if (cliente_lock == SEM_FAILED)
+            {
+                perror("Error al abrir el semáforo CLIENTE_LOCK");
+                exit(1);
+            }
+        }
+        else
+        {
+            perror("Error al crear el semáforo CLIENTE_LOCK");
+            exit(1);
+        }
+    }
+
+    // Intentamos adquirir el semáforo (espera 0 segundos para no bloquear)
+    if (sem_trywait(cliente_lock) == -1)
+    {
+        if (errno == EAGAIN)
+        {
+            printf("Ya hay un cliente en ejecución. Solo se permite un cliente a la vez.\n");
+            exit(1);
+        }
+        else
+        {
+            perror("Error al adquirir el semáforo CLIENTE_LOCK");
+            exit(1);
+        }
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+
     SharedMemory *memoriaCompartida;
 
     int sharedMemInt = shm_open("SHARED_MEM", O_RDWR, 0600);
@@ -92,11 +132,15 @@ int main(int argc, char *argv[])
         {
             printf("No hay servidor conectado\n");
         }
+        sem_close(cliente_lock);
+        sem_unlink("CLIENTE_LOCK");
         exit(1);
     }
 
     if (ftruncate(sharedMemInt, sizeof(SharedMemory)) == -1) {
         perror("Error al ajustar el tamaño de la memoria compartida");
+        sem_close(cliente_lock);
+        sem_unlink("CLIENTE_LOCK");
         exit(EXIT_FAILURE);
     }
 
@@ -113,6 +157,8 @@ int main(int argc, char *argv[])
     if (cliente == SEM_FAILED)
     {
         printf("error abriendo sem cliente\n");
+        sem_close(cliente_lock);
+        sem_unlink("CLIENTE_LOCK");
         exit(1);
     }
 
@@ -121,6 +167,8 @@ int main(int argc, char *argv[])
     if (servidor == SEM_FAILED)
     {
         printf("error abriendo sem servidor\n");
+        sem_close(cliente_lock);
+        sem_unlink("CLIENTE_LOCK");
         exit(1);
     }
 
@@ -129,6 +177,8 @@ int main(int argc, char *argv[])
     if (finalizacion == SEM_FAILED)
     {
         printf("error abriendo sem finalizacion\n");
+        sem_close(cliente_lock);
+        sem_unlink("CLIENTE_LOCK");
         exit(1);
     }
 
@@ -149,11 +199,10 @@ int main(int argc, char *argv[])
         {
             printf("error desconocido abriendo sem MUTEX\n");
         }
-
+        sem_close(cliente_lock);
+        sem_unlink("CLIENTE_LOCK");
         exit(1);
     }
-
-    // se debe validar que un cliente no se conecte si no hay servidor activo
 
     sem_post(cliente); // me conecto a server
 
@@ -201,6 +250,16 @@ TAG:
 
         sem_post(cliente); // le aviso a server que meti una palabra
     }
+
+    if (strcmp(memoriaCompartida->estadoPartida, "exit") == 0)
+    {
+        printf("El servidor ha finalizado la partida.\n");
+    }
+
+    // Liberamos el semáforo de exclusión antes de salir
+    sem_post(cliente_lock);
+    sem_close(cliente_lock);
+    sem_unlink("CLIENTE_LOCK");
 
     sem_post(finalizacion);
 

@@ -79,6 +79,7 @@ void generarRanking(Jugador *jugadores, int cantidadJugadores)
 
 void mostrarRanking(Jugador *jugadores)
 {
+	printf("===================================================\n");
 	printf("Ranking de jugadores:\n");
 	for (int i = 0; i < 50; i++)
 	{
@@ -88,6 +89,7 @@ void mostrarRanking(Jugador *jugadores)
 				   jugadores[i].nickname, jugadores[i].puntaje, jugadores[i].tiempoJuego);
 		}
 	}
+	printf("===================================================\n");
 }
 
 void devolverPalabraJuego(char *destino, char *original)
@@ -431,7 +433,7 @@ int main(int argc, char *argv[])
 TAG2:
 	while (!finalizarPartida)
 	{
-		printf("esperando al cliente\n");
+		printf("Esperando al cliente\n");
 
 		int indice = rand() % cantidadFrases;
 		strcpy(memoriaCompartida->palabra, frases[indice]);
@@ -451,7 +453,7 @@ TAG2:
 			goto TAG2;
 		}
 
-		printf("entró el cliente %s\n", memoriaCompartida->nickname);
+		printf("Entró el cliente %s\n", memoriaCompartida->nickname);
 
 		// sem_wait(finalizacion);
 
@@ -465,6 +467,7 @@ TAG2:
 		estadoPartida = TRUE; // para el sigusr1
 
 		time_t tiempoInicio = time(NULL);
+		memoriaCompartida->intentos = cantidad;
 
 	TAG:
 		while (memoriaCompartida->intentos > 0 && !termProcess)
@@ -498,7 +501,7 @@ TAG2:
 				// sem_post(mutex);
 				break;
 			}
-
+			//
 			// bandera generica
 			int acierto = 0;
 
@@ -551,7 +554,6 @@ TAG2:
 		sem_wait(finalizacion);
 		if (!finalizarPartida)
 		{
-
 			strcpy(memoriaCompartida->estadoPartida, "00000000");
 			// sem_post(mutex);
 			cantJugadores++;
@@ -559,24 +561,16 @@ TAG2:
 			memoriaCompartida->intentos = cantidad;
 			estadoPartida = FALSE;
 		}
+		strcpy(memoriaCompartida->nickname, "");  // Reiniciar nickname.
+		strcpy(memoriaCompartida->estadoPartida, "00000000");  // Estado neutral.
+		
 	}
+
 	strcpy(memoriaCompartida->estadoPartida, "finalizando");
 
 	generarRanking(jugadores, cantJugadores);
 	mostrarRanking(jugadores);
 
-	// limpiar los recursos cuando se termine el servidor
-	// sem_close(mutex);
-	// sem_close(cliente);
-	// sem_close(servidor);
-	// sem_close(finalizacion);
-	// sem_unlink("MUTEX");
-	// sem_unlink("CLIENTE");
-	// sem_unlink("SERVIDOR");
-	// sem_unlink("FINALIZACION");
-	// munmap(memoriaCompartida, sizeof(SharedMemory));
-	// close(sharedMemInt);
-	// shm_unlink("SHARED_MEM");
 	limpiarRecursos();
 	printf("Servidor finalizado.\n");
 
