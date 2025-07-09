@@ -41,35 +41,19 @@ typedef struct
 	int tiempoJuego; // en segundos
 } Jugador;
 
+sem_t *mutex = SEM_FAILED;
+sem_t *finalizacion = SEM_FAILED;
+sem_t *cliente = SEM_FAILED;
+sem_t *servidor = SEM_FAILED;
+SharedMemory *memoriaCompartida = MAP_FAILED;
+int sharedMemInt = -1;
+Jugador jugadores[50];
+int cantJugadores = 0;
+char *frases[MAX_FRASES] = {NULL};
+
 bool termProcess = FALSE;
 bool estadoPartida = FALSE;
 bool finalizarPartida = FALSE;
-
-void devolverPalabraJuego(char *destino, char *original)
-{
-	int i;
-	for (i = 0; original[i] != '\0'; i++)
-	{
-		destino[i] = (original[i] == ' ') ? ' ' : '_';
-	}
-	destino[i] = '\0';
-}
-
-void sigusrHandler(int signal)
-{
-	// necesito una variable para poder finalizar al servidor. completar
-	switch (signal)
-	{
-	case SIGUSR1:
-		printf("SIGUSR1 recibido, cerrando servidor...\n");
-		finalizarPartida = TRUE;
-		termProcess = TRUE;
-		break;
-	case SIGUSR2:
-		printf("SIGUSR2 recibido, esperando a finalizar la partida para cerrar el servidor...\n");
-		finalizarPartida = TRUE;
-	}
-}
 
 // Función de comparación para qsort
 int compararJugadores(const void *a, const void *b)
@@ -106,9 +90,90 @@ void mostrarRanking(Jugador *jugadores)
 	}
 }
 
+void devolverPalabraJuego(char *destino, char *original)
+{
+	int i;
+	for (i = 0; original[i] != '\0'; i++)
+	{
+		destino[i] = (original[i] == ' ') ? ' ' : '_';
+	}
+	destino[i] = '\0';
+}
+
+void limpiarRecursos()
+{
+	// Cerrar y desvincular semáforos
+	if (mutex != SEM_FAILED)
+	{
+		sem_close(mutex);
+		sem_unlink("MUTEX");
+	}
+	if (cliente != SEM_FAILED)
+	{
+		sem_close(cliente);
+		sem_unlink("CLIENTE");
+	}
+	if (servidor != SEM_FAILED)
+	{
+		sem_close(servidor);
+		sem_unlink("SERVIDOR");
+	}
+	if (finalizacion != SEM_FAILED)
+	{
+		sem_close(finalizacion);
+		sem_unlink("FINALIZACION");
+	}
+
+	// Liberar memoria compartida
+	if (memoriaCompartida != MAP_FAILED)
+	{
+		munmap(memoriaCompartida, sizeof(SharedMemory));
+		close(sharedMemInt);
+		shm_unlink("SHARED_MEM");
+	}
+
+	// Liberar frases cargadas del archivo
+	for (int i = 0; i < MAX_FRASES && frases[i] != NULL; i++)
+	{
+		free(frases[i]);
+	}
+
+	printf("Recursos liberados correctamente.\n");
+}
+
+void sigtermHandler()
+{
+	printf("SIGTERM recibido, cerrando servidor...\n");
+	finalizarPartida = TRUE;
+	termProcess = TRUE;
+	limpiarRecursos();
+	exit(0);
+}
+
+void sigusrHandler(int signal)
+{
+	switch (signal)
+	{
+	case SIGUSR2:
+		generarRanking(jugadores, cantJugadores);
+		mostrarRanking(jugadores);
+		printf("SIGUSR2 recibido, esperando a finalizar la partida para cerrar el servidor...\n");
+
+		finalizarPartida = TRUE;
+		termProcess = TRUE;
+
+		limpiarRecursos();
+		exit(0);
+	case SIGUSR1:
+		printf("SIGUSR1 recibido, cerrando servidor...\n");
+		finalizarPartida = TRUE;
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	signal(SIGINT, SIG_IGN);
+	signal(SIGTERM, sigtermHandler);
 	signal(SIGUSR1, sigusrHandler);
 	signal(SIGUSR2, sigusrHandler);
 
@@ -141,13 +206,31 @@ int main(int argc, char *argv[])
 
 			if (strcmp(argv[i], "--cantidad") == 0 || strcmp(argv[i], "-c") == 0)
 			{
-				cantidad = atoi(argv[i + 1]);
+				if (i + 1 >= argc || argv[i + 1] == NULL)
+				{
+					fprintf(stderr, "Error: Falta el número después de -c/--cantidad\n");
+					return 1; // Terminar con error
+				}
+
+				char *endptr;
+				cantidad = strtol(argv[i + 1], &endptr, 10);
+
+				if (*endptr != '\0' || cantidad <= 0)
+				{ // Si no es un número válido o es <= 0
+					fprintf(stderr, "Error: El valor después de -c/--cantidad debe ser un número positivo\n");
+					return 1;
+				}
 				i++;
 				b_cantidad = TRUE;
 			}
 
 			if (strcmp(argv[i], "--archivo") == 0 || strcmp(argv[i], "-a") == 0)
 			{
+				if (i + 1 >= argc || argv[i + 1] == NULL)
+				{
+					fprintf(stderr, "Error: Falta la ruta del archivo\n");
+					return 1; // Terminar con error
+				}
 				filePath = argv[i + 1];
 				i++;
 				b_file = TRUE;
@@ -158,7 +241,7 @@ int main(int argc, char *argv[])
 
 	if (b_cantidad == FALSE)
 	{
-		printf("parametro usuarios invalido o faltante\n");
+		printf("parametros invalidos o faltante\n");
 		return 1;
 	}
 
@@ -175,7 +258,7 @@ int main(int argc, char *argv[])
 		perror("Error abriendo archivo");
 		return 1;
 	}
-	char *frases[MAX_FRASES];
+
 	char bufferArchivo[MAX_LINEA];
 	int cantidadFrases = 0;
 
@@ -189,6 +272,7 @@ int main(int argc, char *argv[])
 		{
 			perror("Fallo al reservar memoria\n");
 			fclose(file);
+			free(frases[i]);
 			return 1;
 		}
 		cantidadFrases++;
@@ -197,8 +281,6 @@ int main(int argc, char *argv[])
 	fclose(file);
 
 	////////////////////////////////////////////////////////////////////////////
-
-	SharedMemory *memoriaCompartida;
 
 	int sharedMemInt = shm_open("SHARED_MEM", O_RDWR | O_CREAT, 0600);
 
@@ -228,7 +310,11 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	ftruncate(sharedMemInt, sizeof(SharedMemory));
+	if (ftruncate(sharedMemInt, sizeof(SharedMemory)) == -1)
+	{
+		perror("ftruncate failed");
+		exit(EXIT_FAILURE);
+	}
 
 	memoriaCompartida = (SharedMemory *)mmap(NULL, sizeof(SharedMemory), PROT_WRITE, MAP_SHARED, sharedMemInt, 0);
 
@@ -335,10 +421,8 @@ int main(int argc, char *argv[])
 		}
 		exit(1);
 	}
-	Jugador jugadores[50];	  // arreglo de jugadores, maximo 50 jugadores
-	jugadores[0].puntaje = 0; // inicializo el primer jugador con puntaje 0
 
-	int cantJugadores = 0;
+	jugadores[0].puntaje = 0; // inicializo el primer jugador con puntaje 0
 
 	struct timespec ts;
 	int valorSemSer;
@@ -369,7 +453,7 @@ TAG2:
 
 		printf("entró el cliente %s\n", memoriaCompartida->nickname);
 
-		//sem_wait(finalizacion);
+		// sem_wait(finalizacion);
 
 		devolverPalabraJuego(memoriaCompartida->palabraCamuflada, memoriaCompartida->palabra);
 
@@ -379,7 +463,6 @@ TAG2:
 		strcpy(jugadores[cantJugadores].nickname, memoriaCompartida->nickname);
 
 		estadoPartida = TRUE; // para el sigusr1
-		
 
 		time_t tiempoInicio = time(NULL);
 
@@ -404,7 +487,6 @@ TAG2:
 
 			if (strcmp(memoriaCompartida->estadoPartida, "exit") == 0)
 			{
-				// falta hacer funcion de contabilizar puntaje (el append en el file y sarasa)
 				time_t tiempoFin = time(NULL);
 				int tiempoJuego = difftime(tiempoFin, tiempoInicio);
 				printf("El cliente %s ha salido del juego.\n", memoriaCompartida->nickname);
@@ -474,29 +556,28 @@ TAG2:
 			// sem_post(mutex);
 			cantJugadores++;
 
-			// falta resetear las variables para que se pueda conectar el proximo cliente
 			memoriaCompartida->intentos = cantidad;
 			estadoPartida = FALSE;
 		}
 	}
 	strcpy(memoriaCompartida->estadoPartida, "finalizando");
 
-
 	generarRanking(jugadores, cantJugadores);
 	mostrarRanking(jugadores);
 
 	// limpiar los recursos cuando se termine el servidor
-	sem_close(mutex);
-	sem_close(cliente);
-	sem_close(servidor);
-	sem_close(finalizacion);
-	sem_unlink("MUTEX");
-	sem_unlink("CLIENTE");
-	sem_unlink("SERVIDOR");
-	sem_unlink("FINALIZACION");
-	munmap(memoriaCompartida, sizeof(SharedMemory));
-	close(sharedMemInt);
-	shm_unlink("SHARED_MEM");
+	// sem_close(mutex);
+	// sem_close(cliente);
+	// sem_close(servidor);
+	// sem_close(finalizacion);
+	// sem_unlink("MUTEX");
+	// sem_unlink("CLIENTE");
+	// sem_unlink("SERVIDOR");
+	// sem_unlink("FINALIZACION");
+	// munmap(memoriaCompartida, sizeof(SharedMemory));
+	// close(sharedMemInt);
+	// shm_unlink("SHARED_MEM");
+	limpiarRecursos();
 	printf("Servidor finalizado.\n");
 
 	return 0;

@@ -87,39 +87,24 @@ int main(int argc, char *argv[])
 
     if (sharedMemInt == -1)
     {
-        perror("Error abriendo memoria compartida"); // Imprime el error
-        if (errno == EACCES)
+        perror("No se pudo abrir la memoria compartida");
+        if (errno == ENOENT)
         {
-            printf("Error: Permisos insuficientes\n");
-        }
-        else if (errno == ENOENT)
-        {
-            printf("Error: Objeto no encontrado\n");
-            printf("Asegurate de que el servidor esté corriendo antes de iniciar.\n");
-            exit(1);
-        }
-        else if (errno == EEXIST)
-        {
-            printf("Error: El objeto ya existe.\n");
-        }
-        else if (errno == EINVAL)
-        {
-            printf("Error: Nombre no válido\n");
-        }
-        else if (errno == EMFILE || errno == ENFILE)
-        {
-            printf("Error: Demasiados descriptores o archivos abiertos.\n");
+            printf("No hay servidor conectado\n");
         }
         exit(1);
     }
 
-    ftruncate(sharedMemInt, sizeof(SharedMemory));
+    if (ftruncate(sharedMemInt, sizeof(SharedMemory)) == -1) {
+        perror("Error al ajustar el tamaño de la memoria compartida");
+        exit(EXIT_FAILURE);
+    }
 
     memoriaCompartida = (SharedMemory *)mmap(NULL, sizeof(SharedMemory), PROT_WRITE, MAP_SHARED, sharedMemInt, 0);
 
     strcpy(memoriaCompartida->nickname, nickName);
 
-    printf("nickname en la mem compartyda %s\n", memoriaCompartida->nickname);
+    printf("Nickname ingresado: %s\n", memoriaCompartida->nickname);
 
     close(sharedMemInt);
 
@@ -141,7 +126,7 @@ int main(int argc, char *argv[])
 
     sem_t *finalizacion = sem_open("FINALIZACION", O_RDWR, 0600, 0);
 
-    if (servidor == SEM_FAILED)
+    if (finalizacion == SEM_FAILED)
     {
         printf("error abriendo sem finalizacion\n");
         exit(1);
@@ -196,11 +181,12 @@ TAG:
 
         fflush(stdin);
         fflush(stdout);
-        scanf("%s", palabraAEnviar);
+        if (scanf("%s", palabraAEnviar) != 1) {
+            printf("Error al leer la entrada\n");
+            continue; // o manejar el error adecuadamente
+        }
         fflush(stdin);
         fflush(stdout);
-
-        // printf("[server]: %s\n", memoriaCompartida->palabraCamuflada);
 
         if (strcmp(palabraAEnviar, "exit") != 0)
         {
@@ -217,7 +203,6 @@ TAG:
     }
 
     sem_post(finalizacion);
-
 
     return 0;
 }
