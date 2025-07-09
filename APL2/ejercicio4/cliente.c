@@ -32,10 +32,26 @@ typedef struct
 
 } SharedMemory;
 
+void sigtermHandler()
+{
+	printf("SIGTERM recibido, cerrando cliente...\n");
+    sem_t *cliente_lock = sem_open("CLIENTE_LOCK", 0);
+    if (cliente_lock != SEM_FAILED)
+    {
+        sem_post(cliente_lock); // Liberar el semáforo de exclusión
+        sem_close(cliente_lock);
+        sem_unlink("CLIENTE_LOCK");
+    }
+    
+    printf("Recursos liberados correctamente.\n");
+	exit(0);
+}
+
 int main(int argc, char *argv[])
 {
 
     signal(SIGINT, SIG_IGN);
+    signal(SIGTERM, sigtermHandler);
 
     ////////////////////////////////////////////////////////////////////////////
     // verifico que los parametros sean correctos
