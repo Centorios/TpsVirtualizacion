@@ -16,6 +16,7 @@ Integrantes del grupo :
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <time.h>
 
 #define FALSE 0
 #define TRUE 1
@@ -30,7 +31,6 @@ typedef struct
     char estadoPartida[30];
 
 } SharedMemory;
- 
 
 int main(int argc, char *argv[])
 {
@@ -38,7 +38,7 @@ int main(int argc, char *argv[])
     signal(SIGINT, SIG_IGN);
 
     ////////////////////////////////////////////////////////////////////////////
-    //verifico que los parametros sean correctos
+    // verifico que los parametros sean correctos
     if (argc < 3)
     {
         printf("faltan parametros requeridos\n");
@@ -54,21 +54,20 @@ int main(int argc, char *argv[])
         if (argv[i] != NULL)
         {
             if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0)
-            {  //muestra ayuda para el cliente
+            { // muestra ayuda para el cliente
                 printf("Opciones :\n");
                 printf("--nickname o -n para indicar el nickname del cliente\n");
                 printf("--help o -h para mostrar esta ayuda\n");
                 printf("Ejemplo: ./cliente -n nickName\n");
                 return 0;
             }
-            //copia el nickname del cliente
+            // copia el nickname del cliente
             if (strcmp(argv[i], "-nickname") == 0 || strcmp(argv[i], "-n") == 0)
             {
                 strcpy(nickName, argv[i + 1]);
                 i++;
                 b_nickname = TRUE;
             }
-        
         }
 
         i++;
@@ -149,41 +148,50 @@ int main(int argc, char *argv[])
     }
 
     sem_t *mutex = sem_open("MUTEX", O_CREAT, 0600, 1);
-	// no se pudo abrir el semaforo MUTEX
-	if (mutex == SEM_FAILED)
-	{
-		perror("error abriendo sem mutex");
-		if (errno == EEXIST)
-		{
-			printf("el semaforo MUTEX ya existe, no se puede abrir\n");
-		}
-		else if (errno == EACCES)
-		{
-			printf("el semaforo MUTEX no se puede abrir, no tengo permisos\n");
-		}
-		else
-		{
-			printf("error desconocido abriendo sem MUTEX\n");
-		}
+    // no se pudo abrir el semaforo MUTEX
+    if (mutex == SEM_FAILED)
+    {
+        perror("error abriendo sem mutex");
+        if (errno == EEXIST)
+        {
+            printf("el semaforo MUTEX ya existe, no se puede abrir\n");
+        }
+        else if (errno == EACCES)
+        {
+            printf("el semaforo MUTEX no se puede abrir, no tengo permisos\n");
+        }
+        else
+        {
+            printf("error desconocido abriendo sem MUTEX\n");
+        }
 
-		exit(1);
-	}
-
+        exit(1);
+    }
 
     // se debe validar que un cliente no se conecte si no hay servidor activo
-    
 
     sem_post(cliente); // me conecto a server
 
-    while (memoriaCompartida->intentos > 0 && strcmp(memoriaCompartida->estadoPartida,"exit"))
+    struct timespec ts;
+
+TAG:
+    while ((memoriaCompartida->intentos > 0) && (strcmp(memoriaCompartida->estadoPartida, "exit") != 0) && (strcmp(memoriaCompartida->estadoPartida, "finalizando") != 0))
     {
-        sem_wait(servidor); // espero a que el server haya seteado todo
+        // sem_wait(servidor); // espero a que el server haya seteado todo
+
+        clock_gettime(CLOCK_REALTIME, &ts);
+        ts.tv_sec += 2;
+
+        if ((sem_timedwait(servidor, &ts) == -1))
+        {
+            goto TAG;
+        }
 
         char palabraAEnviar[30] = "";
 
         fflush(stdin);
         fflush(stdout);
-        
+
         printf("[server]: %s\n - Intentos restantes: %d\n", memoriaCompartida->palabraCamuflada, memoriaCompartida->intentos);
 
         fflush(stdin);
@@ -192,7 +200,7 @@ int main(int argc, char *argv[])
         fflush(stdin);
         fflush(stdout);
 
-        //printf("[server]: %s\n", memoriaCompartida->palabraCamuflada);
+        // printf("[server]: %s\n", memoriaCompartida->palabraCamuflada);
 
         if (strcmp(palabraAEnviar, "exit") != 0)
         {
@@ -209,6 +217,7 @@ int main(int argc, char *argv[])
     }
 
     sem_post(finalizacion);
+
 
     return 0;
 }
